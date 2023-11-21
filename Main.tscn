@@ -1,32 +1,27 @@
-[gd_scene load_steps=8 format=3 uid="uid://cff5uacv07nea"]
+[gd_scene load_steps=12 format=3 uid="uid://cff5uacv07nea"]
 
-[ext_resource type="Shader" path="res://clouds.gdshader" id="1"]
-[ext_resource type="CompressedTexture3D" uid="uid://c4dp6g6gouj2b" path="res://worlnoise.bmp" id="2"]
-[ext_resource type="CompressedTexture3D" uid="uid://dbfbysid168mx" path="res://perlworlnoise.tga" id="3"]
-[ext_resource type="Texture2D" uid="uid://dfkye0uf4i6w1" path="res://weather.bmp" id="4"]
+[ext_resource type="Script" path="res://ProcessClouds.gd" id="1_rxf86"]
+[ext_resource type="Shader" path="res://clouds-v2.gdshader" id="1_srjtu"]
+
+[sub_resource type="Texture2DRD" id="Texture2DRD_13ece"]
+texture_rd_rid = RID(551486685716019)
+
+[sub_resource type="Texture2DRD" id="Texture2DRD_7sto2"]
+texture_rd_rid = RID(551469505846833)
+
+[sub_resource type="Texture2DRD" id="Texture2DRD_0f4ht"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_jcxn0"]
-shader = ExtResource("1")
-shader_parameter/wind_direction = Vector2(1, 0)
-shader_parameter/wind_speed = 1.0
-shader_parameter/_density = 0.05
-shader_parameter/cloud_coverage = 0.25
-shader_parameter/_time_offset = 0.0
-shader_parameter/rayleigh = 2.0
-shader_parameter/rayleigh_color = Color(0.26, 0.41, 0.58, 1)
-shader_parameter/mie = 0.005
-shader_parameter/mie_eccentricity = 0.8
-shader_parameter/mie_color = Color(0.63, 0.77, 0.92, 1)
-shader_parameter/turbidity = 10.0
-shader_parameter/sun_disk_scale = 1.0
+shader = ExtResource("1_srjtu")
+shader_parameter/blend_amount = 0.84375
 shader_parameter/ground_color = Color(1, 1, 1, 1)
-shader_parameter/exposure = 0.1
-shader_parameter/worlnoise = ExtResource("2")
-shader_parameter/perlworlnoise = ExtResource("3")
-shader_parameter/weathermap = ExtResource("4")
+shader_parameter/hemisphere = SubResource("Texture2DRD_0f4ht")
+shader_parameter/blend_from_texture = SubResource("Texture2DRD_13ece")
+shader_parameter/blend_to_texture = SubResource("Texture2DRD_7sto2")
 
 [sub_resource type="Sky" id="Sky_m81e2"]
 sky_material = SubResource("ShaderMaterial_jcxn0")
+radiance_size = 2
 
 [sub_resource type="Environment" id="3"]
 background_mode = 2
@@ -34,14 +29,32 @@ sky = SubResource("Sky_m81e2")
 tonemap_mode = 3
 tonemap_white = 3.22
 
+[sub_resource type="CameraAttributesPractical" id="CameraAttributesPractical_yd3yn"]
+auto_exposure_max_sensitivity = 200000.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wyls6"]
+shading_mode = 0
+albedo_texture = SubResource("Texture2DRD_7sto2")
+
+[sub_resource type="QuadMesh" id="QuadMesh_lmd5e"]
+
 [node name="Node3D" type="Node3D"]
 transform = Transform3D(1, 0.0003427, -0.00016891, -0.000342464, 0.999999, 0.00143352, 0.000169389, -0.00143346, 0.999999, 0, 0, 0)
+script = ExtResource("1_rxf86")
+light_path = NodePath("DirectionalLight3D")
+cloud_coverage = 0.75
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("3")
+camera_attributes = SubResource("CameraAttributesPractical_yd3yn")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.920579, 0.376576, 0.103561, 0.363452, -0.923084, 0.125775, 0.142959, -0.0781465, -0.986639, 0, 0, 0)
+transform = Transform3D(1, -0.000213112, 0.000336679, 3.60581e-05, 0.889879, 0.456197, -0.000396813, -0.456197, 0.889879, -0.000392931, 1.18999, 0.0880813)
 
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(0.106334, -0.534699, -0.838325, -0.00173144, 0.843005, -0.537904, 0.994329, 0.0586487, 0.0887139, 0, 0, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+visible = false
+material_override = SubResource("StandardMaterial3D_wyls6")
+mesh = SubResource("QuadMesh_lmd5e")
