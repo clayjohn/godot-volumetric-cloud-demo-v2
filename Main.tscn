@@ -1,27 +1,27 @@
-[gd_scene load_steps=12 format=3 uid="uid://cff5uacv07nea"]
+[gd_scene load_steps=13 format=3 uid="uid://cff5uacv07nea"]
 
 [ext_resource type="Script" path="res://ProcessClouds.gd" id="1_rxf86"]
 [ext_resource type="Shader" path="res://clouds-v2.gdshader" id="1_srjtu"]
 
-[sub_resource type="Texture2DRD" id="Texture2DRD_13ece"]
-texture_rd_rid = RID(551486685716019)
+[sub_resource type="Texture2DRD" id="Texture2DRD_sniig"]
+texture_rd_rid = RID(558607741492798)
 
-[sub_resource type="Texture2DRD" id="Texture2DRD_7sto2"]
-texture_rd_rid = RID(551469505846833)
+[sub_resource type="Texture2DRD" id="Texture2DRD_b08bq"]
+texture_rd_rid = RID(558616331427391)
 
 [sub_resource type="Texture2DRD" id="Texture2DRD_0f4ht"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_jcxn0"]
 shader = ExtResource("1_srjtu")
-shader_parameter/blend_amount = 0.84375
+shader_parameter/blend_amount = 0.265625
 shader_parameter/ground_color = Color(1, 1, 1, 1)
 shader_parameter/hemisphere = SubResource("Texture2DRD_0f4ht")
-shader_parameter/blend_from_texture = SubResource("Texture2DRD_13ece")
-shader_parameter/blend_to_texture = SubResource("Texture2DRD_7sto2")
+shader_parameter/blend_from_texture = SubResource("Texture2DRD_sniig")
+shader_parameter/blend_to_texture = SubResource("Texture2DRD_b08bq")
 
 [sub_resource type="Sky" id="Sky_m81e2"]
 sky_material = SubResource("ShaderMaterial_jcxn0")
-radiance_size = 2
+radiance_size = 0
 
 [sub_resource type="Environment" id="3"]
 background_mode = 2
@@ -34,15 +34,18 @@ auto_exposure_max_sensitivity = 200000.0
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wyls6"]
 shading_mode = 0
-albedo_texture = SubResource("Texture2DRD_7sto2")
+albedo_texture = SubResource("Texture2DRD_b08bq")
 
 [sub_resource type="QuadMesh" id="QuadMesh_lmd5e"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_35df5"]
+outline_size = 3
+outline_color = Color(0, 0, 0, 1)
 
 [node name="Node3D" type="Node3D"]
 transform = Transform3D(1, 0.0003427, -0.00016891, -0.000342464, 0.999999, 0.00143352, 0.000169389, -0.00143346, 0.999999, 0, 0, 0)
 script = ExtResource("1_rxf86")
 light_path = NodePath("DirectionalLight3D")
-cloud_coverage = 0.75
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("3")
@@ -58,3 +61,9 @@ transform = Transform3D(0.106334, -0.534699, -0.838325, -0.00173144, 0.843005, -
 visible = false
 material_override = SubResource("StandardMaterial3D_wyls6")
 mesh = SubResource("QuadMesh_lmd5e")
+
+[node name="Label" type="Label" parent="."]
+offset_right = 63.0
+offset_bottom = 47.0
+text = "Frame Time: 8.47457627118644 ms"
+label_settings = SubResource("LabelSettings_35df5")

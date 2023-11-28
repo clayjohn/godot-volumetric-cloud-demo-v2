@@ -82,6 +82,8 @@ func _ready():
 	update_region_size = texture_size / frames_sqrt
 	num_workgroups = update_region_size / 8
 
+	_update_per_frame_data()
+
 	for i in range(frames_to_update * 2):
 		update_sky()
 
@@ -94,6 +96,7 @@ func _process(delta):
 		return
 	
 	update_sky()
+	$Label.text = "Frame Time: " + str(1000.0/Engine.get_frames_per_second()) + " ms"
 	
 func update_sky():
 	if frame >= frames_to_update:
@@ -104,13 +107,12 @@ func update_sky():
 		texture_to_blend_to = (texture_to_blend_to + 1) % 3
 		
 		_update_per_frame_data() # Only call once per update otherwise quads get out of sync
-		
+
 		$WorldEnvironment.environment.sky.sky_material.set_shader_parameter("blend_from_texture", textures[texture_to_blend_from])
 		$WorldEnvironment.environment.sky.sky_material.set_shader_parameter("blend_to_texture", textures[texture_to_blend_to])
 		$WorldEnvironment.environment.sky.sky_material.set_shader_parameter("ground_color", frame_data.ground_color)
 		$MeshInstance3D.material_override.albedo_texture = textures[texture_to_blend_to]
 		frame = 0
-
 
 	$WorldEnvironment.environment.sky.sky_material.set_shader_parameter("blend_amount", float(frame) / float(frames_to_update))
 

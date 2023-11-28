@@ -17,6 +17,8 @@ TODOs ======================================
 3. Better noise to hide artifacts
 4. Use octahedral mapping (either to get the full sky, or just increase precision)
 5. Implement heirarchical marching.
+6. Convert everything into a sky resource, or a sky material
+7. Write Atmosphere to a 64x64 cubemap and sample it here.
 */
 
 

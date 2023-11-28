@@ -1,0 +1,23 @@
+[gd_scene load_steps=5 format=3 uid="uid://cuq1ivbrvsscn"]
+
+[ext_resource type="Shader" path="res://atmosphere-test.gdshader" id="1_l0oeg"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wdoxe"]
+shader = ExtResource("1_l0oeg")
+
+[sub_resource type="Sky" id="Sky_npk73"]
+sky_material = SubResource("ShaderMaterial_wdoxe")
+radiance_size = 1
+
+[sub_resource type="Environment" id="Environment_v8f3q"]
+background_mode = 2
+sky = SubResource("Sky_npk73")
+
+[node name="AtmosphereTest" type="Node3D"]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.770847, 0.63702, 0, -0.63702, 0.770847, 0, 0, 0)
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_v8f3q")
