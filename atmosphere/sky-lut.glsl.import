@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://cn86jovjgolyk"
+path="res://.godot/imported/sky-lut.glsl-2f59bd7a67d4bd62dda3b763f80753ab.res"
+
+[deps]
+
+source_file="res://atmosphere/sky-lut.glsl"
+dest_files=["res://.godot/imported/sky-lut.glsl-2f59bd7a67d4bd62dda3b763f80753ab.res"]
+
+[params]
+

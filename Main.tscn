@@ -1,23 +1,26 @@
-[gd_scene load_steps=13 format=3 uid="uid://cff5uacv07nea"]
+[gd_scene load_steps=22 format=3 uid="uid://cff5uacv07nea"]
 
 [ext_resource type="Script" path="res://ProcessClouds.gd" id="1_rxf86"]
 [ext_resource type="Shader" path="res://clouds-v2.gdshader" id="1_srjtu"]
+[ext_resource type="Texture2D" uid="uid://262btfwc1fwn" path="res://atmosphere/transmittance_lut.tres" id="3_maxb4"]
+[ext_resource type="Texture2D" uid="uid://drsphwlgj4u0s" path="res://atmosphere/multi-scatter-lut.tres" id="4_ms6eh"]
+[ext_resource type="Texture2D" uid="uid://ctiv7he6yc5y0" path="res://atmosphere/sky_lut.tres" id="5_k52hd"]
 
-[sub_resource type="Texture2DRD" id="Texture2DRD_sniig"]
-texture_rd_rid = RID(558607741492798)
+[sub_resource type="Texture2DRD" id="Texture2DRD_2n6gk"]
+texture_rd_rid = RID(551516750487099)
 
-[sub_resource type="Texture2DRD" id="Texture2DRD_b08bq"]
-texture_rd_rid = RID(558616331427391)
+[sub_resource type="Texture2DRD" id="Texture2DRD_5pgw7"]
+texture_rd_rid = RID(551525340421692)
 
 [sub_resource type="Texture2DRD" id="Texture2DRD_0f4ht"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_jcxn0"]
 shader = ExtResource("1_srjtu")
-shader_parameter/blend_amount = 0.265625
+shader_parameter/blend_amount = 0.828125
 shader_parameter/ground_color = Color(1, 1, 1, 1)
 shader_parameter/hemisphere = SubResource("Texture2DRD_0f4ht")
-shader_parameter/blend_from_texture = SubResource("Texture2DRD_sniig")
-shader_parameter/blend_to_texture = SubResource("Texture2DRD_b08bq")
+shader_parameter/blend_from_texture = SubResource("Texture2DRD_2n6gk")
+shader_parameter/blend_to_texture = SubResource("Texture2DRD_5pgw7")
 
 [sub_resource type="Sky" id="Sky_m81e2"]
 sky_material = SubResource("ShaderMaterial_jcxn0")
@@ -34,13 +37,33 @@ auto_exposure_max_sensitivity = 200000.0
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wyls6"]
 shading_mode = 0
-albedo_texture = SubResource("Texture2DRD_b08bq")
+albedo_texture = SubResource("Texture2DRD_5pgw7")
 
 [sub_resource type="QuadMesh" id="QuadMesh_lmd5e"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_35df5"]
 outline_size = 3
 outline_color = Color(0, 0, 0, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_h7tvq"]
+shading_mode = 0
+albedo_texture = ExtResource("3_maxb4")
+
+[sub_resource type="QuadMesh" id="QuadMesh_auakp"]
+size = Vector2(1, 0.25)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wotix"]
+shading_mode = 0
+albedo_texture = ExtResource("4_ms6eh")
+
+[sub_resource type="QuadMesh" id="QuadMesh_y2wp7"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kuple"]
+shading_mode = 0
+albedo_texture = ExtResource("5_k52hd")
+
+[sub_resource type="QuadMesh" id="QuadMesh_quhq3"]
+size = Vector2(1, 0.5)
 
 [node name="Node3D" type="Node3D"]
 transform = Transform3D(1, 0.0003427, -0.00016891, -0.000342464, 0.999999, 0.00143352, 0.000169389, -0.00143346, 0.999999, 0, 0, 0)
@@ -52,18 +75,33 @@ environment = SubResource("3")
 camera_attributes = SubResource("CameraAttributesPractical_yd3yn")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(1, -0.000213112, 0.000336679, 3.60581e-05, 0.889879, 0.456197, -0.000396813, -0.456197, 0.889879, -0.000392931, 1.18999, 0.0880813)
+transform = Transform3D(1, -0.000187402, 0.000480603, 0.000144108, 0.99607, 0.0885636, -0.0004953, -0.0885635, 0.99607, -0.000392931, 1.18999, 0.0880813)
 
 [node name="Camera3D" type="Camera3D" parent="."]
 transform = Transform3D(0.106334, -0.534699, -0.838325, -0.00173144, 0.843005, -0.537904, 0.994329, 0.0586487, 0.0887139, 0, 0, 0)
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
-visible = false
+transform = Transform3D(1, -1.03682e-10, 0, 5.68434e-13, 1, -4.65661e-10, 0, 4.65661e-10, 1, 6.00819e-06, -5.0841e-05, 0.0354672)
 material_override = SubResource("StandardMaterial3D_wyls6")
 mesh = SubResource("QuadMesh_lmd5e")
 
 [node name="Label" type="Label" parent="."]
 offset_right = 63.0
 offset_bottom = 47.0
-text = "Frame Time: 8.47457627118644 ms"
+text = "Frame Time: 10.6382978723404 ms"
 label_settings = SubResource("LabelSettings_35df5")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, -1.32758e-10, 0, 5.68434e-13, 1, -5.82077e-10, 0, 5.82077e-10, 1, -1.147, -0.001, 0.02)
+material_override = SubResource("StandardMaterial3D_h7tvq")
+mesh = SubResource("QuadMesh_auakp")
+
+[node name="MeshInstance3D3" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, -1.90937e-10, 0, 5.68434e-13, 1, -8.14907e-10, 0, 8.14907e-10, 1, -2.2742, -0.0013863, 0.0201904)
+material_override = SubResource("StandardMaterial3D_wotix")
+mesh = SubResource("QuadMesh_y2wp7")
+
+[node name="MeshInstance3D4" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, -2.49116e-10, 0, 5.68434e-13, 1, -1.04774e-09, 0, 1.04774e-09, 1, -3.56025, -0.00182704, 0.0204076)
+material_override = SubResource("StandardMaterial3D_kuple")
+mesh = SubResource("QuadMesh_quhq3")

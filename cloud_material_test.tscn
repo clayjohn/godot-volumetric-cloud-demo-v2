@@ -1,0 +1,20 @@
+[gd_scene load_steps=4 format=3 uid="uid://cj5hq40giurw8"]
+
+[ext_resource type="Sky" uid="uid://b6ffjku47471j" path="res://clouds_sky.tres" id="1_mwet6"]
+[ext_resource type="Script" path="res://sun.gd" id="2_1ebey"]
+
+[sub_resource type="Environment" id="Environment_hxkob"]
+background_mode = 2
+sky = ExtResource("1_mwet6")
+
+[node name="CloudMaterialTest" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_hxkob")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." node_paths=PackedStringArray("world_environment")]
+transform = Transform3D(1, 0, 0, 0, -0.991673, 0.128778, 0, -0.128778, -0.991673, 0, 1.24209, 0)
+script = ExtResource("2_1ebey")
+world_environment = NodePath("../WorldEnvironment")

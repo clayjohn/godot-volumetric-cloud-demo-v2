@@ -1,11 +1,49 @@
 @tool
-extends Node3D
+extends Sky
+
+# User configurable properties
+@export_group("Cloud Settings")
+@export
+var wind_direction : Vector2 = Vector2(1.0, 0.0)
+@export
+var wind_speed : float = 1.0
+@export
+var density : float = 0.05
+@export
+var cloud_coverage : float = 0.25
+@export
+var time_offset : float = 0.0
+@export
+var turbidity : float = 10.0
+
+@export_group("Sky Settings")
+@export
+var sun_disk_scale : float = 1.0
+@export
+var ground_color : Color = Color(1.0, 1.0, 1.0, 1.0)
+@export
+var exposure : float = 0.1
+@export
+var sun_visible : bool = true
+@export
+var moon_visible : bool = false
+
+@export_group("Performance Settings")
+@export
+var texture_size : int = 768 # Needs to be divisble by sqrt(frames_to_update)
+@export
+var update_mode : CloudUpdateMode = CloudUpdateMode.UPDATE_ALWAYS
+
+enum CloudUpdateMode {
+	UPDATE_ALWAYS, # Update every frame
+	UPDATE_WHEN_CHANGED # Update every time a property is changed
+}
+
+var sun : DirectionalLight3D
+
+# Internal properties
 
 class FrameData:
-	# Internal properties
-	var texture_size : int = 0
-	var update_position : Vector2i = Vector2i(0, 0)
-
 	# User-configurable properties
 	var wind_direction : Vector2 = Vector2(1.0, 0.0)
 	var wind_speed : float = 1.0
@@ -29,36 +67,9 @@ class FrameData:
 		LIGHT_ENERGY = light.light_energy
 		LIGHT_COLOR = light.light_color.srgb_to_linear()
 
-@export
-var light_path : NodePath
-@export
-var wind_direction : Vector2 = Vector2(1.0, 0.0)
-@export
-var wind_speed : float = 1.0
-@export
-var density : float = 0.05
-@export
-var cloud_coverage : float = 0.25
-@export
-var time_offset : float = 0.0
-@export
-var turbidity : float = 10.0
-@export
-var sun_disk_scale : float = 1.0
-@export
-var ground_color : Color = Color(1.0, 1.0, 1.0, 1.0)
-@export
-var exposure : float = 0.1
-@export
-var sun_visible : bool = true
-@export
-var moon_visible : bool = false
-
 var frame_data : FrameData = FrameData.new()
-# Needs to be divisble by sqrt(frames_to_update)
-var texture_size : int = 768
-# needs to always be a power of two value
-var frames_to_update : int = 64
+var update_position : Vector2i = Vector2i(0, 0)
+var frames_to_update : int = 64 # needs to always be a power of two value
 var update_region_size : int = 96
 var num_workgroups : int = 12
 
@@ -71,36 +82,36 @@ var frame = 0
 
 var can_run = false
 
-func _ready():
-	frame_data.texture_size = texture_size
-	frame_data.update_light_data(get_node(light_path))
-	# In case we're running stuff on the rendering thread
-	# we need to do our initialization on that thread
-	RenderingServer.call_on_render_thread(_initialize_compute_code.bind(texture_size))
-
+func _init():
 	var frames_sqrt = sqrt(frames_to_update)
 	update_region_size = texture_size / frames_sqrt
 	num_workgroups = update_region_size / 8
+	sky_material = ShaderMaterial.new()
+	sky_material.shader = preload("res://clouds-v2.gdshader")
 
+	RenderingServer.call_on_render_thread(_initialize_compute_code.bind(texture_size))
+
+	initialize_sky()
+	
+	RenderingServer.connect("frame_pre_draw", update_sky)
+
+# Initialize and update the sky so it is visible in the first frame.
+func initialize_sky():
 	_update_per_frame_data()
-
 	for i in range(frames_to_update * 2):
 		update_sky()
 
-# Called every frame. 'delta' is the elapsed time since the previous frame.
-func _process(delta):
+func update_sky():
 	if len(textures) < 3:
 		return
-		
+
 	if not can_run:
 		return
-	
-	update_sky()
-	$Label.text = "Frame Time: " + str(1000.0/Engine.get_frames_per_second()) + " ms"
-	
-func update_sky():
-	if frame >= frames_to_update:
 		
+	#if not sun:
+		#return
+
+	if frame >= frames_to_update:
 		# Increase our next texture index
 		texture_to_update = (texture_to_update + 1) % 3
 		texture_to_blend_from = (texture_to_blend_from + 1) % 3
@@ -108,31 +119,47 @@ func update_sky():
 		
 		_update_per_frame_data() # Only call once per update otherwise quads get out of sync
 
-		$WorldEnvironment.environment.sky.sky_material.set_shader_parameter("blend_from_texture", textures[texture_to_blend_from])
-		$WorldEnvironment.environment.sky.sky_material.set_shader_parameter("blend_to_texture", textures[texture_to_blend_to])
-		$WorldEnvironment.environment.sky.sky_material.set_shader_parameter("ground_color", frame_data.ground_color)
-		$MeshInstance3D.material_override.albedo_texture = textures[texture_to_blend_to]
+		sky_material.set_shader_parameter("blend_from_texture", textures[texture_to_blend_from])
+		sky_material.set_shader_parameter("blend_to_texture", textures[texture_to_blend_to])
+		sky_material.set_shader_parameter("ground_color", ground_color)
 		frame = 0
 
-	$WorldEnvironment.environment.sky.sky_material.set_shader_parameter("blend_amount", float(frame) / float(frames_to_update))
+	sky_material.set_shader_parameter("blend_amount", float(frame) / float(frames_to_update))
 
 	RenderingServer.call_on_render_thread(_render_process.bind(texture_to_update))
 	
-	frame_data.update_position.x += update_region_size
-	if frame_data.update_position.x >= texture_size:
-		frame_data.update_position.x = 0
-		frame_data.update_position.y += update_region_size
-	if frame_data.update_position.y >= texture_size:
-		frame_data.update_position = Vector2i(0, 0)
+	update_position.x += update_region_size
+	if update_position.x >= texture_size:
+		update_position.x = 0
+		update_position.y += update_region_size
+	if update_position.y >= texture_size:
+		update_position = Vector2i(0, 0)
 		
 	frame += 1
+
+func _update_per_frame_data():
+	if sun:
+		frame_data.update_light_data(sun)
+	frame_data.wind_direction = wind_direction
+	frame_data.wind_speed = wind_speed
+	frame_data.density = density
+	frame_data.cloud_coverage = cloud_coverage
+	frame_data.time_offset = time_offset
+	frame_data.turbidity = turbidity
+	frame_data.sun_disk_scale = sun_disk_scale
+	frame_data.ground_color = ground_color
+	frame_data.exposure = exposure
+
+func _validate_property(property):
+	if property.name == "sky_material" or property.name == "process_mode":
+		property.usage &= ~PROPERTY_USAGE_EDITOR
 
 ###############################################################################
 # Everything after this point is designed to run on our rendering thread
 
 var rd : RenderingDevice
 
-var shader : RID
+var shader_rd : RID
 var pipeline : RID
 
 # We use 3 textures:
@@ -144,13 +171,70 @@ var texture_set : Array = [ RID(), RID(), RID() ]
 var noise_uniform_set : RID = RID()
 var sampler
 
-func _create_uniform_set(texture_rd : RID) -> RID:
+func _render_process(p_texture_to_update):
+	#if not textures[p_texture_to_update].is_valid():
+	textures[p_texture_to_update].texture_rd_rid = texture_rd[p_texture_to_update]
+
+	var push_constant = _fill_push_constant()
+
+	# Run our compute shader.
+	var compute_list := rd.compute_list_begin()
+	rd.compute_list_bind_compute_pipeline(compute_list, pipeline)
+	rd.compute_list_bind_uniform_set(compute_list, noise_uniform_set, 1)
+	rd.compute_list_bind_uniform_set(compute_list, texture_set[p_texture_to_update], 0)
+
+	rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4)
+	rd.compute_list_dispatch(compute_list, num_workgroups, num_workgroups, 1)
+	rd.compute_list_end()
+
+	
+func _fill_push_constant():
+	var push_constant : PackedFloat32Array = PackedFloat32Array()
+#	The order of properties here must match those in clouds.glsl, including padding
+	push_constant.push_back(texture_size)
+	push_constant.push_back(texture_size)
+	push_constant.push_back(update_position.x)
+	push_constant.push_back(update_position.y)
+
+	push_constant.push_back(frame_data.wind_direction.x)
+	push_constant.push_back(frame_data.wind_direction.y)
+	push_constant.push_back(frame_data.wind_speed)
+	push_constant.push_back(frame_data.density)
+	
+	push_constant.push_back(frame_data.cloud_coverage)
+	push_constant.push_back(frame_data.time_offset)
+	push_constant.push_back(frame_data.turbidity)
+	push_constant.push_back(frame_data.sun_disk_scale)
+	
+	push_constant.push_back(frame_data.ground_color.r)
+	push_constant.push_back(frame_data.ground_color.g)
+	push_constant.push_back(frame_data.ground_color.b)
+	push_constant.push_back(frame_data.ground_color.a)
+	
+	push_constant.push_back(frame_data.LIGHT_DIRECTION.x)
+	push_constant.push_back(frame_data.LIGHT_DIRECTION.y)
+	push_constant.push_back(frame_data.LIGHT_DIRECTION.z)
+	push_constant.push_back(frame_data.LIGHT_ENERGY)
+	
+	push_constant.push_back(frame_data.LIGHT_COLOR.r)
+	push_constant.push_back(frame_data.LIGHT_COLOR.g)
+	push_constant.push_back(frame_data.LIGHT_COLOR.b)
+	push_constant.push_back(0.0) # will be flags
+	
+	push_constant.push_back(frame_data.exposure)
+	push_constant.push_back(Time.get_ticks_msec()/1000.0)
+	push_constant.push_back(0.0)
+	push_constant.push_back(0.0)
+
+	return push_constant
+
+func _create_uniform_set(p_texture_rd : RID) -> RID:
 	var uniform := RDUniform.new()
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE
 	uniform.binding = 0
-	uniform.add_id(texture_rd)
-	return rd.uniform_set_create([uniform], shader, 0)
-	
+	uniform.add_id(p_texture_rd)
+	return rd.uniform_set_create([uniform], shader_rd, 0)
+
 func _create_noise_uniform_set() -> RID:
 	var uniforms = []
 	
@@ -193,10 +277,8 @@ func _create_noise_uniform_set() -> RID:
 	uniform.add_id(sampler)
 	uniform.add_id(W_rd)
 	uniforms.push_back(uniform)
-	
-	print(uniforms)
-	
-	return rd.uniform_set_create(uniforms, shader, 1)
+
+	return rd.uniform_set_create(uniforms, shader_rd, 1)
 
 func _initialize_compute_code(p_texture_size):
 	can_run = true
@@ -207,10 +289,10 @@ func _initialize_compute_code(p_texture_size):
 	# Create our shader
 	var shader_file = load("res://clouds.glsl")
 	var shader_spirv: RDShaderSPIRV = shader_file.get_spirv()
-	shader = rd.shader_create_from_spirv(shader_spirv)
-	if not shader.is_valid():
+	shader_rd = rd.shader_create_from_spirv(shader_spirv)
+	if not shader_rd.is_valid():
 		can_run = false
-	pipeline = rd.compute_pipeline_create(shader)
+	pipeline = rd.compute_pipeline_create(shader_rd)
 
 	# Create our textures to manage our wave
 	var tf : RDTextureFormat = RDTextureFormat.new()
@@ -237,81 +319,11 @@ func _initialize_compute_code(p_texture_size):
 		textures.push_back(Texture2DRD.new())
 		#textures[i].texture_rd_rid = texture_rd[i]
 
-func _update_per_frame_data():
-	frame_data.update_light_data(get_node(light_path))
-	frame_data.wind_direction = wind_direction
-	frame_data.wind_speed = wind_speed
-	frame_data.density = density
-	frame_data.cloud_coverage = cloud_coverage
-	frame_data.time_offset = time_offset
-	frame_data.turbidity = turbidity
-	frame_data.sun_disk_scale = sun_disk_scale
-	frame_data.ground_color = ground_color
-	frame_data.exposure = exposure
-	
-func _fill_push_constant():
-	
-	var push_constant : PackedFloat32Array = PackedFloat32Array()
-#	The order of properties here must match those in clouds.glsl, including padding
-	push_constant.push_back(frame_data.texture_size)
-	push_constant.push_back(frame_data.texture_size)
-	push_constant.push_back(frame_data.update_position.x)
-	push_constant.push_back(frame_data.update_position.y)
-
-	push_constant.push_back(frame_data.wind_direction.x)
-	push_constant.push_back(frame_data.wind_direction.y)
-	push_constant.push_back(frame_data.wind_speed)
-	push_constant.push_back(frame_data.density)
-	
-	push_constant.push_back(frame_data.cloud_coverage)
-	push_constant.push_back(frame_data.time_offset)
-	push_constant.push_back(frame_data.turbidity)
-	push_constant.push_back(frame_data.sun_disk_scale)
-	
-	push_constant.push_back(frame_data.ground_color.r)
-	push_constant.push_back(frame_data.ground_color.g)
-	push_constant.push_back(frame_data.ground_color.b)
-	push_constant.push_back(frame_data.ground_color.a)
-	
-	push_constant.push_back(frame_data.LIGHT_DIRECTION.x)
-	push_constant.push_back(frame_data.LIGHT_DIRECTION.y)
-	push_constant.push_back(frame_data.LIGHT_DIRECTION.z)
-	push_constant.push_back(frame_data.LIGHT_ENERGY)
-	
-	push_constant.push_back(frame_data.LIGHT_COLOR.r)
-	push_constant.push_back(frame_data.LIGHT_COLOR.g)
-	push_constant.push_back(frame_data.LIGHT_COLOR.b)
-	push_constant.push_back(0.0) # will be flags
-	
-	push_constant.push_back(frame_data.exposure)
-	push_constant.push_back(Time.get_ticks_msec()/1000.0)
-	push_constant.push_back(0.0)
-	push_constant.push_back(0.0)
-
-	return push_constant
-
-func _render_process(p_texture_to_update):
-	
-	#if not textures[p_texture_to_update].is_valid():
-	textures[p_texture_to_update].texture_rd_rid = texture_rd[p_texture_to_update]
-
-	var push_constant = _fill_push_constant()
-
-	# Run our compute shader.
-	var compute_list := rd.compute_list_begin()
-	rd.compute_list_bind_compute_pipeline(compute_list, pipeline)
-	rd.compute_list_bind_uniform_set(compute_list, noise_uniform_set, 1)
-	rd.compute_list_bind_uniform_set(compute_list, texture_set[p_texture_to_update], 0)
-
-	rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4)
-	rd.compute_list_dispatch(compute_list, num_workgroups, num_workgroups, 1)
-	rd.compute_list_end()
-
 func _free_compute_resources():
 	# Note that our sets and pipeline are cleaned up automatically as they are dependencies :P
 	for i in range(3):
 		if texture_rd[i]:
 			rd.free_rid(texture_rd[i])
 
-	if shader:
-		rd.free_rid(shader)
+	if shader_rd:
+		rd.free_rid(shader_rd)

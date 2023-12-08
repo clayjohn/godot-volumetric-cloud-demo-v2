@@ -1,0 +1,127 @@
+[gd_scene load_steps=8 format=3 uid="uid://bn2q7tcbdqae3"]
+
+[ext_resource type="Script" path="res://sun_test.gd" id="1_hjb0t"]
+[ext_resource type="Texture2D" uid="uid://ctiv7he6yc5y0" path="res://atmosphere/sky_lut.tres" id="2_ngi0e"]
+[ext_resource type="Texture2D" uid="uid://262btfwc1fwn" path="res://atmosphere/transmittance_lut.tres" id="3_ugmls"]
+
+[sub_resource type="Shader" id="Shader_4b1u4"]
+code = "
+// NOTE: Shader automatically converted from Godot Engine 4.2.stable's PanoramaSkyMaterial.
+
+shader_type sky;
+
+uniform sampler2D source_panorama : filter_linear, hint_default_black;
+uniform sampler2D source_transmittance : filter_linear, hint_default_black;
+
+const float groundRadiusMM = 6.360;
+const float atmosphereRadiusMM = 6.460;
+const vec3 viewPos = vec3(0.0, groundRadiusMM + 0.0002, 0.0);
+const vec2 tLUTRes = vec2(256.0, 64.0);
+
+float safeacos(const float x) {
+    return acos(clamp(x, -1.0, 1.0));
+}
+
+vec3 getValFromSkyLUT(vec3 rayDir) {
+    float height = length(viewPos);
+    vec3 up = viewPos / height;
+    
+    float horizonAngle = safeacos(sqrt(height * height - groundRadiusMM * groundRadiusMM) / height);
+    float altitudeAngle = horizonAngle - acos(dot(rayDir, up)); // Between -PI/2 and PI/2
+    float azimuthAngle; // Between 0 and 2*PI
+    if (abs(altitudeAngle) > (0.5*PI - .0001)) {
+        // Looking nearly straight up or down.
+        azimuthAngle = 0.0;
+    } else {
+        vec3 right = cross(up, LIGHT0_DIRECTION);
+        vec3 forward = cross(up, right);
+        
+        vec3 projectedDir = normalize(rayDir - up*(dot(rayDir, up)));
+        float sinTheta = dot(projectedDir, right);
+        float cosTheta = dot(projectedDir, forward);
+        azimuthAngle = atan(sinTheta, cosTheta) + PI;
+    }
+    
+    // Non-linear mapping of altitude angle. See Section 5.3 of the paper.
+    float v = 0.5 + 0.5*sign(altitudeAngle)*sqrt(abs(altitudeAngle)*2.0/PI);
+    vec2 uv = vec2(azimuthAngle / (2.0*PI), v);
+    
+    return texture(source_panorama, uv).rgb;
+}
+
+vec3 sunWithBloom(vec3 rayDir, vec3 sunDir) {
+    const float sunSolidAngle = 0.53*PI/180.0;
+    const float minSunCosTheta = cos(sunSolidAngle);
+
+    float cosTheta = dot(rayDir, sunDir);
+    if (cosTheta >= minSunCosTheta) return vec3(1.0);
+    
+    float offset = minSunCosTheta - cosTheta;
+    float gaussianBloom = exp(-offset*50000.0)*0.5;
+    float invBloom = 1.0/(0.02 + offset*300.0)*0.01;
+    return vec3(gaussianBloom+invBloom);
+}
+
+float rayIntersectSphere(vec3 ro, vec3 rd, float rad) {
+    float b = dot(ro, rd);
+    float c = dot(ro, ro) - rad*rad;
+    if (c > 0.0f && b > 0.0) return -1.0;
+    float discr = b*b - c;
+    if (discr < 0.0) return -1.0;
+    // Special case: inside sphere, use far discriminant
+    if (discr > b*b) return (-b + sqrt(discr));
+    return -b - sqrt(discr);
+}
+
+vec3 getValFromTLUT(sampler2D tex, vec2 bufferRes, vec3 pos, vec3 sunDir) {
+    float height = length(pos);
+    vec3 up = pos / height;
+	float sunCosZenithAngle = dot(up,sunDir);
+    vec2 uv = vec2(tLUTRes.x*clamp(0.5 + 0.5*sunCosZenithAngle, 0.0, 1.0),
+                   tLUTRes.y*max(0.0, min(1.0, (height - groundRadiusMM)/(atmosphereRadiusMM - groundRadiusMM))));
+    uv /= bufferRes;
+    return texture(tex, uv).rgb;
+}
+
+void sky() {
+	COLOR = getValFromSkyLUT(EYEDIR);
+	vec3 sunLum = sunWithBloom(EYEDIR, LIGHT0_DIRECTION);
+    // Use smoothstep to limit the effect, so it drops off to actual zero.
+    sunLum = smoothstep(0.002, 1.0, sunLum);
+    if (length(sunLum) > 0.0) {
+        if (rayIntersectSphere(viewPos, EYEDIR, groundRadiusMM) >= 0.0) {
+            sunLum *= 0.0;
+        } else {
+            // If the sun value is applied to this pixel, we need to calculate the transmittance to obscure it.
+        	sunLum *= getValFromTLUT(source_transmittance, tLUTRes, viewPos, LIGHT0_DIRECTION);
+		}
+    }
+    COLOR += sunLum;
+	COLOR *= 10.0;
+}
+"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_73q81"]
+shader = SubResource("Shader_4b1u4")
+shader_parameter/source_panorama = ExtResource("2_ngi0e")
+shader_parameter/source_transmittance = ExtResource("3_ugmls")
+
+[sub_resource type="Sky" id="Sky_8vyso"]
+sky_material = SubResource("ShaderMaterial_73q81")
+
+[sub_resource type="Environment" id="Environment_a4tjg"]
+background_mode = 2
+sky = SubResource("Sky_8vyso")
+tonemap_mode = 3
+tonemap_white = 16.0
+
+[node name="Node3D" type="Node3D"]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.999252, -0.0386666, 0, 0.0386666, 0.999252, -0.0363269, 0, 0)
+shadow_enabled = true
+script = ExtResource("1_hjb0t")
+atmosphere_tex = ExtResource("2_ngi0e")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_a4tjg")

@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://b6ae7c26hkr41"
+path="res://.godot/imported/multi-scattering-lut.glsl-e4d047a6c507a604f949fceb44e92e4f.res"
+
+[deps]
+
+source_file="res://atmosphere/multi-scattering-lut.glsl"
+dest_files=["res://.godot/imported/multi-scattering-lut.glsl-e4d047a6c507a604f949fceb44e92e4f.res"]
+
+[params]
+

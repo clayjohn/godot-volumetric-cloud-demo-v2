@@ -1,0 +1,15 @@
+@tool
+extends DirectionalLight3D
+
+@export
+var atmosphere_tex : Texture2DRD:
+	set(tex):
+		atmosphere_tex = tex
+		atmosphere_tex.sun = self
+
+func _ready():
+	atmosphere_tex.sun = self
+	
+func _notification(what):
+	if what == NOTIFICATION_TRANSFORM_CHANGED:
+		atmosphere_tex.update_lut()

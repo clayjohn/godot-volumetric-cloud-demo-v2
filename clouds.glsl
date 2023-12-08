@@ -14,10 +14,10 @@ layout(set = 1, binding = 2) uniform sampler2D weather_noise;
 TODOs ======================================
 1. Add sun and moon
 2. Optimize by using the old frame texture
-3. Better noise to hide artifacts
-4. Use octahedral mapping (either to get the full sky, or just increase precision)
+3. (DONE)~Better noise to hide artifacts~
+4. (DONE)~Use octahedral mapping (either to get the full sky, or just increase precision)~
 5. Implement heirarchical marching.
-6. Convert everything into a sky resource, or a sky material
+6. (DONE)~Convert everything into a sky resource, or a sky material~
 7. Write Atmosphere to a 64x64 cubemap and sample it here.
 */
 
@@ -290,16 +290,33 @@ vec4 sky(vec3 dir) {
     return col;
 }
 
+vec2 oct_wrap(vec2 v) {
+	vec2 signVal;
+	signVal.x = v.x >= 0.0 ? 1.0 : -1.0;
+	signVal.y = v.y >= 0.0 ? 1.0 : -1.0;
+	return (1.0 - abs(v.yx)) * signVal;
+}
+
+// Hemisphere octahedral. Maximizes use of square texture.
+// Adapted from https://johnwhite3d.blogspot.com/2017/10/signed-octahedron-normal-encoding.html
+vec3 oct_to_vec3(vec2 e) {
+	vec3 n;
+	n.x = (e.x - e.y);
+	n.y = (e.x + e.y) - 1.0;
+	n.z = 1.0 - abs(n.x) - abs(n.y);
+    n.xy = n.z >= 0.0 ? n.xy : oct_wrap( n.xy );
+
+	return normalize(n);
+}
+
 void main() {
 	// Calculate direction from pixel position.
 	ivec2 pos = ivec2(gl_GlobalInvocationID.xy) + ivec2(params.update_position);
 	vec2 uv = vec2(pos) / params.texture_size;
-	vec3 dir = vec3(0.0);
-	dir.xz = uv * vec2(2.0) - vec2(1.0);
-	dir.y = 0.5 - 0.5 * ((dir.x * dir.x) + (dir.z * dir.z));
-	dir = normalize(dir);
+	vec3 dir = oct_to_vec3(uv).xzy;
 	
 	imageStore(current_image, pos, sky(dir));
+
 }
 
 

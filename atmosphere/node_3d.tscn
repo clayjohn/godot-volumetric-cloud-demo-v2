@@ -1,0 +1,265 @@
+[gd_scene load_steps=13 format=3 uid="uid://cc6sr6ha8vk51"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_dpsf3"]
+
+[sub_resource type="Shader" id="Shader_xe27s"]
+code = "
+// NOTE: Shader automatically converted from Godot Engine 4.2.stable's PhysicalSkyMaterial.
+
+shader_type sky;
+render_mode use_debanding;
+
+uniform float rayleigh : hint_range(0, 64) = 2.0;
+uniform vec4 rayleigh_color : source_color = vec4(0.3, 0.405, 0.6, 1.0);
+uniform float mie : hint_range(0, 1) = 0.005;
+uniform float mie_eccentricity : hint_range(-1, 1) = 0.8;
+uniform vec4 mie_color : source_color = vec4(0.69, 0.729, 0.812, 1.0);
+
+uniform float turbidity : hint_range(0, 1000) = 10.0;
+uniform float sun_disk_scale : hint_range(0, 360) = 1.0;
+uniform vec4 ground_color : source_color = vec4(0.1, 0.07, 0.034, 1.0);
+uniform float exposure : hint_range(0, 128) = 1.0;
+
+uniform sampler2D night_sky : filter_linear, source_color, hint_default_black;
+
+const vec3 UP = vec3( 0.0, 1.0, 0.0 );
+
+// Optical length at zenith for molecules.
+const float rayleigh_zenith_size = 8.4e3;
+const float mie_zenith_size = 1.25e3;
+
+float henyey_greenstein(float cos_theta, float g) {
+	const float k = 0.0795774715459;
+	return k * (1.0 - g * g) / (pow(1.0 + g * g - 2.0 * g * cos_theta, 1.5));
+}
+
+void sky() {
+	if (LIGHT0_ENABLED) {
+		float zenith_angle = clamp( dot(UP, normalize(LIGHT0_DIRECTION)), -1.0, 1.0 );
+		float sun_energy = max(0.0, 1.0 - exp(-((PI * 0.5) - acos(zenith_angle)))) * LIGHT0_ENERGY;
+		float sun_fade = 1.0 - clamp(1.0 - exp(LIGHT0_DIRECTION.y), 0.0, 1.0);
+
+		// Rayleigh coefficients.
+		float rayleigh_coefficient = rayleigh - ( 1.0 * ( 1.0 - sun_fade ) );
+		vec3 rayleigh_beta = rayleigh_coefficient * rayleigh_color.rgb * 0.0001;
+		// mie coefficients from Preetham
+		vec3 mie_beta = turbidity * mie * mie_color.rgb * 0.000434;
+
+		// Optical length.
+		float zenith = acos(max(0.0, dot(UP, EYEDIR)));
+		float optical_mass = 1.0 / (cos(zenith) + 0.15 * pow(93.885 - degrees(zenith), -1.253));
+		float rayleigh_scatter = rayleigh_zenith_size * optical_mass;
+		float mie_scatter = mie_zenith_size * optical_mass;
+
+		// Light extinction based on thickness of atmosphere.
+		vec3 extinction = exp(-(rayleigh_beta * rayleigh_scatter + mie_beta * mie_scatter));
+
+		// In scattering.
+		float cos_theta = dot(EYEDIR, normalize(LIGHT0_DIRECTION));
+
+		float rayleigh_phase = (3.0 / (16.0 * PI)) * (1.0 + pow(cos_theta * 0.5 + 0.5, 2.0));
+		vec3 betaRTheta = rayleigh_beta * rayleigh_phase;
+
+		float mie_phase = henyey_greenstein(cos_theta, mie_eccentricity);
+		vec3 betaMTheta = mie_beta * mie_phase;
+
+		vec3 Lin = pow(sun_energy * ((betaRTheta + betaMTheta) / (rayleigh_beta + mie_beta)) * (1.0 - extinction), vec3(1.5));
+		// Hack from https://github.com/mrdoob/three.js/blob/master/examples/jsm/objects/Sky.js
+		Lin *= mix(vec3(1.0), pow(sun_energy * ((betaRTheta + betaMTheta) / (rayleigh_beta + mie_beta)) * extinction, vec3(0.5)), clamp(pow(1.0 - zenith_angle, 5.0), 0.0, 1.0));
+
+		// Hack in the ground color.
+		Lin  *= mix(ground_color.rgb, vec3(1.0), smoothstep(-0.1, 0.1, dot(UP, EYEDIR)));
+
+		// Solar disk and out-scattering.
+		float sunAngularDiameterCos = cos(LIGHT0_SIZE * sun_disk_scale);
+		float sunAngularDiameterCos2 = cos(LIGHT0_SIZE * sun_disk_scale*0.5);
+		float sundisk = smoothstep(sunAngularDiameterCos, sunAngularDiameterCos2, cos_theta);
+		vec3 L0 = (sun_energy * extinction) * sundisk * LIGHT0_COLOR;
+
+		vec3 color = Lin + L0;
+		COLOR = pow(color, vec3(1.0 / (1.2 + (1.2 * sun_fade))));
+		COLOR *= exposure;
+	}
+}
+"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_pu57c"]
+shader = SubResource("Shader_xe27s")
+shader_parameter/rayleigh = 2.0
+shader_parameter/rayleigh_color = Color(0.3, 0.405, 0.6, 1)
+shader_parameter/mie = 0.005
+shader_parameter/mie_eccentricity = 0.8
+shader_parameter/mie_color = Color(0.69, 0.729, 0.812, 1)
+shader_parameter/turbidity = 10.0
+shader_parameter/sun_disk_scale = 1.0
+shader_parameter/ground_color = Color(0.1, 0.07, 0.034, 1)
+shader_parameter/exposure = 1.0
+
+[sub_resource type="Sky" id="Sky_el1oc"]
+sky_material = SubResource("ShaderMaterial_pu57c")
+
+[sub_resource type="Environment" id="Environment_6qweg"]
+background_mode = 2
+sky = SubResource("Sky_el1oc")
+tonemap_mode = 3
+tonemap_white = 0.2
+
+[sub_resource type="Shader" id="Shader_us6ej"]
+code = "
+// NOTE: Shader automatically converted from Godot Engine 4.2.stable's PhysicalSkyMaterial.
+
+shader_type sky;
+render_mode use_debanding;
+
+uniform vec4 ground_color : source_color = vec4(0.1, 0.07, 0.034, 1.0);
+
+#define atmosphereHeight 8228.
+#define earthRadius 6371000.
+#define mieHeight 1200
+//http://www.vendian.org/mncharity/dir3/starcolor/
+#define sunColor pow(vec3(0xff,0xf5,0xf2)/255.,vec3(2.2))
+#define ozoneHeight 30000.
+// http://skyrenderer.blogspot.com/2012/10/ozone-absorption.html
+// https://www.spectroscopyeurope.com/article/new-broadband-high-resolution-ozone-absorption-cross-sections
+#define ozoneCoefficient (vec3(3.426, 8.298, .356) * 6e-5 / 100.)
+#define mieCoefficient 3e-6 // adjust for foggier look
+#define earthAlbedo pow(vec3(0x99,0x92,0x80)/255.,vec3(2.2))
+
+// ( Riley, Ebert, Kraus )
+//#define rayleighCoefficient vec3(5.8e-6  , 1.35e-5 , 3.31e-5 )
+// ( Bucholtz )
+//#define rayleighCoefficient vec3(4.847e-6, 1.149e-5, 2.87e-5 ) 
+// ( Thalman, Zarzana, Tolbert, Volkamer )
+//#define rayleighCoefficient vec3(5.358e-6, 1.253e-5, 3.062e-5)
+// ( Penndorf )
+#define rayleighCoefficient vec3(5.178e-6, 1.226e-5, 3.06e-5 )
+
+#define up vec3(0,1,0)
+
+//b = dotup
+vec3 getSkyThicknesses(float b){
+    const vec4 sr = earthRadius + vec4(
+        atmosphereHeight,
+        mieHeight,
+        ozoneHeight,
+        ozoneHeight + atmosphereHeight
+    );
+    b*=earthRadius;
+    const float r2 = earthRadius * earthRadius;
+    vec4 z = sqrt( sr * sr + (b * b - r2) );
+    return vec3(b+z.xy, z.w-z.z);
+}
+
+// Improved Rayleigh phase for single scattering
+// https://old.cescg.org/CESCG-2009/papers/PragueCUNI-Elek-Oskar09.pdf
+// note: integral from -1 to 1 of function in the paper is 2.24
+#define phaseRayleigh(a) (( .4 * (a) + 1.12 )/2.24)
+//#define phaseRayleigh(a) ((3./8.)*(1.+(a)*(a)))
+
+// (Henyey Greenstein)
+// https://www.astro.umd.edu/~jph/HG_note.pdf
+float phaseg(float x,float g){
+    const float  b = 1./2.;
+    float a = inversesqrt(1.+g*g-2.*g*x);
+	return b*(1.-g*g)*a*a*a;
+}
+float phaseMie(const float VdotL, const float depth){
+    //curve fit with turingbot
+    float g = atan(sin(pow(0.7,depth*mieCoefficient)));
+    return phaseg(VdotL, g);
+}
+
+
+// https://iquilezles.org/articles/sphereshadow
+float sphSoftShadow(vec3 position,vec3 L){
+    const float k = 5.;
+    //vec4 sph = vec4(-up*earthRadius,earthRadius);
+    vec3 oc = position + up * earthRadius;
+    float b = dot( oc, L );
+    float c = dot( oc, oc ) - earthRadius*earthRadius;
+    float h = b*b - c;
+    
+    float d = -earthRadius + sqrt( max(0.0,earthRadius*earthRadius-h));
+    float t = -b - sqrt( max(0.0,h) );
+    return (t<0.0) ? 1.0 : smoothstep(0.0, 1.0, 2.5*k*d/t );
+}
+
+vec3 getSky(const vec3 V, const vec3 L) {
+
+    const mat3 coeffs = mat3(
+        rayleighCoefficient      ,
+        vec3(mieCoefficient*1.11), // mie absorbs (Bruneton)
+        ozoneCoefficient
+    );
+    
+    float VdotUp = -V.y;
+    float LdotUp = -L.y;
+    
+    vec3 thicknesses = getSkyThicknesses(VdotUp);
+    float VdotL = dot(V, L);
+
+    vec3 rayleighScatter =(thicknesses.x * phaseRayleigh(VdotL))          * rayleighCoefficient;
+    float     mieScatter = thicknesses.y * phaseMie(VdotL, thicknesses.y) *      mieCoefficient;
+
+	vec3 scattering = rayleighScatter + mieScatter;
+    
+    vec3 sunCoeff = coeffs * getSkyThicknesses(LdotUp);
+    vec3 viewCoeff = coeffs * thicknesses;
+    vec3 absorption = (exp(-viewCoeff)-exp(-sunCoeff)) / (sunCoeff - viewCoeff);
+    
+    float earthShadow = sphSoftShadow(thicknesses.x*V,L);
+    
+    //if(dot(V,up)<0.)return earthAlbedo * sunColor * exp(-sunCoeff);
+	vec3 col_mul = mix(ground_color.rgb, vec3(1.0), smoothstep(-0.1, 0.1, dot(up, V)));
+
+    return sunColor * scattering * absorption * earthShadow*col_mul;
+}
+
+void sky() {    
+    vec3 L = LIGHT0_DIRECTION;
+    vec3 V = EYEDIR;    
+    COLOR.rgb = (getSky(V,L));
+}
+"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_rw58u"]
+shader = SubResource("Shader_us6ej")
+shader_parameter/ground_color = Color(0.1, 0.07, 0.034, 1)
+
+[sub_resource type="Sky" id="Sky_a1lsv"]
+sky_material = SubResource("ShaderMaterial_rw58u")
+
+[sub_resource type="Environment" id="Environment_6t6hn"]
+background_mode = 2
+sky = SubResource("Sky_a1lsv")
+tonemap_mode = 3
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_yuefh"]
+
+[sub_resource type="Sky" id="Sky_lmx4k"]
+sky_material = SubResource("ProceduralSkyMaterial_yuefh")
+
+[sub_resource type="Environment" id="Environment_jboek"]
+background_mode = 2
+sky = SubResource("Sky_lmx4k")
+
+[node name="Node3D" type="Node3D"]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.868735, -0.306249, 0.389244, -0.296243, 0.951127, 0.0871557, -0.396912, -0.0395957, -0.917002, 0, 0, 0)
+
+[node name="CPUParticles3D" type="CPUParticles3D" parent="."]
+visible = false
+amount = 17
+mesh = SubResource("BoxMesh_dpsf3")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.928486, -0.371368, 0, 0.371368, 0.928486, 0, 0, 0)
+environment = SubResource("Environment_6qweg")
+
+[node name="Camera3D2" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.928486, -0.371368, 0, 0.371368, 0.928486, 0, 0, 0)
+environment = SubResource("Environment_6t6hn")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_jboek")

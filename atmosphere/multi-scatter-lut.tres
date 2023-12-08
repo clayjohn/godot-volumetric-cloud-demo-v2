@@ -1,0 +1,7 @@
+[gd_resource type="Texture2DRD" load_steps=2 format=3 uid="uid://drsphwlgj4u0s"]
+
+[ext_resource type="Script" path="res://atmosphere/multi-scatter-lut.gd" id="1_7e45h"]
+
+[resource]
+texture_rd_rid = RID(4809680471728267)
+script = ExtResource("1_7e45h")
