@@ -62,6 +62,7 @@ var frames_to_update : int = 64
 var update_region_size : int = 96
 var num_workgroups : int = 12
 
+@export
 var textures : Array = []
 var texture_to_update : int = 0
 var texture_to_blend_from : int = 1

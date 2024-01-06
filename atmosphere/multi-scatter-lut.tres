@@ -3,5 +3,6 @@
 [ext_resource type="Script" path="res://atmosphere/multi-scatter-lut.gd" id="1_7e45h"]
 
 [resource]
-texture_rd_rid = RID(4809680471728267)
+resource_local_to_scene = true
+texture_rd_rid = RID(2566350333545603)
 script = ExtResource("1_7e45h")

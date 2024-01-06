@@ -1,8 +1,11 @@
-[gd_scene load_steps=8 format=3 uid="uid://bn2q7tcbdqae3"]
+[gd_scene load_steps=19 format=3 uid="uid://bn2q7tcbdqae3"]
 
 [ext_resource type="Script" path="res://sun_test.gd" id="1_hjb0t"]
 [ext_resource type="Texture2D" uid="uid://ctiv7he6yc5y0" path="res://atmosphere/sky_lut.tres" id="2_ngi0e"]
 [ext_resource type="Texture2D" uid="uid://262btfwc1fwn" path="res://atmosphere/transmittance_lut.tres" id="3_ugmls"]
+[ext_resource type="Shader" path="res://heightmap.gdshader" id="4_a35g7"]
+[ext_resource type="Texture2D" uid="uid://bjw758d2xrsaj" path="res://render3.png" id="5_b6g1m"]
+[ext_resource type="Texture2D" uid="uid://drsphwlgj4u0s" path="res://atmosphere/multi-scatter-lut.tres" id="6_nmhwx"]
 
 [sub_resource type="Shader" id="Shader_4b1u4"]
 code = "
@@ -10,8 +13,8 @@ code = "
 
 shader_type sky;
 
-uniform sampler2D source_panorama : filter_linear, hint_default_black;
-uniform sampler2D source_transmittance : filter_linear, hint_default_black;
+uniform sampler2D source_panorama : filter_linear, hint_default_black, repeat_disable;
+uniform sampler2D source_transmittance : filter_linear, hint_default_black, repeat_disable;
 
 const float groundRadiusMM = 6.360;
 const float atmosphereRadiusMM = 6.460;
@@ -97,7 +100,8 @@ void sky() {
 		}
     }
     COLOR += sunLum;
-	COLOR *= 10.0;
+	//COLOR *= 10.0;
+	COLOR *= 0.55;
 }
 "
 
@@ -111,17 +115,74 @@ sky_material = SubResource("ShaderMaterial_73q81")
 
 [sub_resource type="Environment" id="Environment_a4tjg"]
 background_mode = 2
+background_energy_multiplier = 11.28
 sky = SubResource("Sky_8vyso")
 tonemap_mode = 3
-tonemap_white = 16.0
+tonemap_white = 5.0
+fog_enabled = true
+fog_aerial_perspective = 1.0
+fog_sky_affect = 0.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wh6cr"]
+render_priority = 0
+shader = ExtResource("4_a35g7")
+shader_parameter/res = Vector2(3416, 3834)
+shader_parameter/ground = Color(0.309804, 0.172549, 0.0823529, 1)
+shader_parameter/heightmap = ExtResource("5_b6g1m")
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_0ba06"]
+material = SubResource("ShaderMaterial_wh6cr")
+custom_aabb = AABB(-5, 0, -5, 10, 2, 10)
+size = Vector2(10, 10)
+subdivide_width = 512
+subdivide_depth = 512
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_udgc4"]
+albedo_texture = ExtResource("3_ugmls")
+texture_repeat = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_a37gg"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6uyiw"]
+albedo_texture = ExtResource("6_nmhwx")
+texture_repeat = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_7dp3f"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_srg54"]
+albedo_texture = ExtResource("2_ngi0e")
+uv1_scale = Vector3(-1, -1, -1)
+uv1_offset = Vector3(0, 1, 0)
+texture_repeat = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_kdir7"]
 
 [node name="Node3D" type="Node3D"]
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.999252, -0.0386666, 0, 0.0386666, 0.999252, -0.0363269, 0, 0)
+transform = Transform3D(0.641901, 0.758428, 0.112916, -0.725843, 0.553525, 0.408365, 0.247214, -0.344089, 0.905808, -0.0363269, 1.30653, 0)
+light_energy = 3.0
 shadow_enabled = true
 script = ExtResource("1_hjb0t")
 atmosphere_tex = ExtResource("2_ngi0e")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_a4tjg")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+visible = false
+mesh = SubResource("PlaneMesh_0ba06")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.48785, 0, 0)
+material_override = SubResource("StandardMaterial3D_udgc4")
+mesh = SubResource("QuadMesh_a37gg")
+
+[node name="MeshInstance3D3" type="MeshInstance3D" parent="."]
+material_override = SubResource("StandardMaterial3D_6uyiw")
+mesh = SubResource("QuadMesh_7dp3f")
+
+[node name="MeshInstance3D4" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.36984, 0, 0)
+material_override = SubResource("StandardMaterial3D_srg54")
+mesh = SubResource("QuadMesh_kdir7")

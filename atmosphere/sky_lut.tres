@@ -3,5 +3,6 @@
 [ext_resource type="Script" path="res://atmosphere/sky_lut.gd" id="1_hry1v"]
 
 [resource]
-texture_rd_rid = RID(551340656827955)
+resource_local_to_scene = true
+texture_rd_rid = RID(2566384693283970)
 script = ExtResource("1_hry1v")

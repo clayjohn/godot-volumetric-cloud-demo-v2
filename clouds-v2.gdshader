@@ -4,6 +4,7 @@ uniform sampler2D hemisphere;
 
 uniform sampler2D blend_from_texture : filter_linear, repeat_disable, source_color;
 uniform sampler2D blend_to_texture : filter_linear, repeat_disable, source_color;
+uniform sampler2D sky_texture : filter_linear, repeat_disable, source_color;
 uniform float blend_amount : hint_range(0.0, 1.0, 0.01);
 uniform vec4 ground_color : source_color = vec4(0.5);
 

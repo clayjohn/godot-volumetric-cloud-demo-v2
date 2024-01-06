@@ -10,6 +10,9 @@ layout(rgba16f, set = 0, binding = 0) uniform restrict writeonly image2D current
 layout(set = 1, binding = 0) uniform sampler3D large_scale_noise;
 layout(set = 1, binding = 1) uniform sampler3D small_scale_noise;
 layout(set = 1, binding = 2) uniform sampler2D weather_noise;
+layout(set = 1, binding = 3) uniform sampler2D sky_lut;
+layout(set = 1, binding = 4) uniform sampler2D transmittance_lut;
+
 /*
 TODOs ======================================
 1. Add sun and moon
@@ -77,6 +80,76 @@ const float mie_zenith_size = 1.25e3;
 
 const float PI = 3.141592;
 
+const float groundRadiusMM = 6.360;
+const float atmosphereRadiusMM = 6.460;
+const vec3 viewPos = vec3(0.0, groundRadiusMM + 0.0002, 0.0);
+const vec2 tLUTRes = vec2(256.0, 64.0);
+
+float safeacos(const float x) {
+    return acos(clamp(x, -1.0, 1.0));
+}
+
+vec3 getValFromSkyLUT(vec3 rayDir) {
+    float height = length(viewPos);
+    vec3 up = viewPos / height;
+    
+    float horizonAngle = safeacos(sqrt(height * height - groundRadiusMM * groundRadiusMM) / height);
+    float altitudeAngle = horizonAngle - acos(dot(rayDir, up)); // Between -PI/2 and PI/2
+    float azimuthAngle; // Between 0 and 2*PI
+    if (abs(altitudeAngle) > (0.5*PI - .0001)) {
+        // Looking nearly straight up or down.
+        azimuthAngle = 0.0;
+    } else {
+        vec3 right = cross(up, params.LIGHT_DIRECTION);
+        vec3 forward = cross(up, right);
+        
+        vec3 projectedDir = normalize(rayDir - up*(dot(rayDir, up)));
+        float sinTheta = dot(projectedDir, right);
+        float cosTheta = dot(projectedDir, forward);
+        azimuthAngle = atan(sinTheta, cosTheta) + PI;
+    }
+    
+    // Non-linear mapping of altitude angle. See Section 5.3 of the paper.
+    float v = 0.5 + 0.5*sign(altitudeAngle)*sqrt(abs(altitudeAngle)*2.0/PI);
+    vec2 uv = vec2(azimuthAngle / (2.0*PI), v);
+    
+    return texture(sky_lut, uv).rgb;
+}
+
+vec3 sunWithBloom(vec3 rayDir, vec3 sunDir) {
+    const float sunSolidAngle = 0.53*PI/180.0;
+    const float minSunCosTheta = cos(sunSolidAngle);
+
+    float cosTheta = dot(rayDir, sunDir);
+    if (cosTheta >= minSunCosTheta) return vec3(1.0);
+    
+    float offset = minSunCosTheta - cosTheta;
+    float gaussianBloom = exp(-offset*50000.0)*0.5;
+    float invBloom = 1.0/(0.02 + offset*300.0)*0.01;
+    return vec3(gaussianBloom+invBloom);
+}
+
+float rayIntersectSphere(vec3 ro, vec3 rd, float rad) {
+    float b = dot(ro, rd);
+    float c = dot(ro, ro) - rad*rad;
+    if (c > 0.0f && b > 0.0) return -1.0;
+    float discr = b*b - c;
+    if (discr < 0.0) return -1.0;
+    // Special case: inside sphere, use far discriminant
+    if (discr > b*b) return (-b + sqrt(discr));
+    return -b - sqrt(discr);
+}
+
+vec3 getValFromTLUT(sampler2D tex, vec2 bufferRes, vec3 pos, vec3 sunDir) {
+    float height = length(pos);
+    vec3 up = pos / height;
+	float sunCosZenithAngle = dot(up,sunDir);
+    vec2 uv = vec2(tLUTRes.x*clamp(0.5 + 0.5*sunCosZenithAngle, 0.0, 1.0),
+                   tLUTRes.y*max(0.0, min(1.0, (height - groundRadiusMM)/(atmosphereRadiusMM - groundRadiusMM))));
+    uv /= bufferRes;
+    return texture(tex, uv).rgb;
+}
+
 // From: https://www.shadertoy.com/view/4sfGzS credit to iq
 float hash(vec3 p) {
 	p  = fract( p * 0.3183099 + 0.1 );
@@ -95,50 +168,28 @@ float henyey_greenstein(float cos_theta, float g) {
 	return k * (1.0 - g * g) / (pow(1.0 + g * g - 2.0 * g * cos_theta, 1.5));
 }
 
+vec3 get_sun(vec3 eye_dir) {
+	vec3 sunLum = sunWithBloom(eye_dir, params.LIGHT_DIRECTION);
+    // Use smoothstep to limit the effect, so it drops off to actual zero.
+    sunLum = smoothstep(0.002, 1.0, sunLum);
+    if (length(sunLum) > 0.0) {
+        if (rayIntersectSphere(viewPos, eye_dir, groundRadiusMM) >= 0.0) {
+            sunLum *= 0.0;
+        } else {
+            // If the sun value is applied to this pixel, we need to calculate the transmittance to obscure it.
+        	sunLum *= getValFromTLUT(transmittance_lut, tLUTRes, viewPos, params.LIGHT_DIRECTION);
+		}
+    }
+	return sunLum * 10.0;
+}
+
 // Simple Analytic sky. In a real project you should use a texture
 vec3 atmosphere(vec3 eye_dir) {
-	float zenith_angle = clamp( dot(UP, normalize(params.LIGHT_DIRECTION)), -1.0, 1.0 );
-	float sun_energy = max(0.0, 1.0 - exp(-((PI * 0.5) - acos(zenith_angle)))) * SUN_ENERGY * params.LIGHT_ENERGY;
-	float sun_fade = 1.0 - clamp(1.0 - exp(params.LIGHT_DIRECTION.y), 0.0, 1.0);
-
-	// Rayleigh coefficients.
-	float rayleigh_coefficient = rayleigh - ( 1.0 * ( 1.0 - sun_fade ) );
-	vec3 rayleigh_beta = rayleigh_coefficient * rayleigh_color.rgb * 0.0001;
-	// mie coefficients from Preetham
-	vec3 mie_beta = params.turbidity * mie * mie_color.rgb * 0.000434;
-
-	// optical length
-	float zenith = acos(max(0.0, dot(UP, eye_dir)));
-	float optical_mass = 1.0 / (cos(zenith) + 0.15 * pow(93.885 - degrees(zenith), -1.253));
-	float rayleigh_scatter = rayleigh_zenith_size * optical_mass;
-	float mie_scatter = mie_zenith_size * optical_mass;
-
-	// light extinction based on thickness of atmosphere
-	vec3 extinction = exp(-(rayleigh_beta * rayleigh_scatter + mie_beta * mie_scatter));
-
-	// in scattering
-	float cos_theta = dot(eye_dir, normalize(params.LIGHT_DIRECTION));
-
-	float rayleigh_phase = (3.0 / (16.0 * PI)) * (1.0 + pow(cos_theta * 0.5 + 0.5, 2.0));
-	vec3 betaRTheta = rayleigh_beta * rayleigh_phase;
-
-	float mie_phase = henyey_greenstein(cos_theta, mie_eccentricity);
-	vec3 betaMTheta = mie_beta * mie_phase;
-
-	vec3 Lin = pow(sun_energy * ((betaRTheta + betaMTheta) / (rayleigh_beta + mie_beta)) * (1.0 - extinction), vec3(1.5));
-	// Hack from https://github.com/mrdoob/three.js/blob/master/examples/jsm/objects/Sky.js
-	Lin *= mix(vec3(1.0), pow(sun_energy * ((betaRTheta + betaMTheta) / (rayleigh_beta + mie_beta)) * extinction, vec3(0.5)), clamp(pow(1.0 - zenith_angle, 5.0), 0.0, 1.0));
-
-	// Solar disk and out-scattering
-	float sunAngularDiameterCos = cos(SOL_SIZE * params.sun_disk_scale);
-	float sunAngularDiameterCos2 = cos(SOL_SIZE * params.sun_disk_scale * 0.5);
-	float sundisk = smoothstep(sunAngularDiameterCos, sunAngularDiameterCos2, cos_theta);
-	vec3 L0 = (sun_energy * 1900.0 * extinction) * sundisk * params.LIGHT_COLOR;
-
-	vec3 color = (Lin + L0) * 0.04;
-	color = pow(color, vec3(1.0 / (1.2 + (1.2 * sun_fade))));
-	color *= params.exposure;
-	return color;
+	vec3 COLOR = getValFromSkyLUT(eye_dir);
+	vec3 sunLum = get_sun(eye_dir);
+	COLOR *= 10.0;
+    COLOR += sunLum;
+	return COLOR;
 }
 
 float GetHeightFractionForPoint(float inPosition) { 
@@ -212,9 +263,9 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 	float phase = max(max(henyey_greenstein(costheta, 0.6), henyey_greenstein(costheta, (0.4 - 1.4 * ldir.y))), henyey_greenstein(costheta, -0.2));
 	// Precalculate sun and ambient colors
 	// This should really come from a uniform or texture for performance reasons
-	vec3 atmosphere_sun = atmosphere(params.LIGHT_DIRECTION) * params.LIGHT_ENERGY * ss * 0.1;
-	vec3 atmosphere_ambient = atmosphere(normalize(vec3(1.0, 1.0, 0.0)));
-	vec3 atmosphere_ground = atmosphere(normalize(vec3(1.0, -1.0, 0.0)));
+	vec3 atmosphere_sun = getValFromTLUT(transmittance_lut, tLUTRes, viewPos, params.LIGHT_DIRECTION)*100.0;
+	vec3 atmosphere_ambient = atmosphere(normalize(vec3(1.0, 1.0, 0.0))) * 50.0;
+	vec3 atmosphere_ground = atmosphere(normalize(vec3(1.0, -1.0, 0.0))) * 50.0;
 	
 	const float weather_scale = 0.00006;
 	float time = params.time * 0.001 + 0.005 * params.time_offset;
@@ -254,7 +305,7 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 			float beers2 = exp(-params.density * cd * lss * 0.25) * 0.7;
 			float beers_total = max(beers, beers2);
 
-			vec3 ambient = vec3(0.0);//mix(atmosphere_ground, vec3(1.0), smoothstep(0.0, 1.0, height_fraction)) * params.density * atmosphere_ambient;
+			vec3 ambient = mix(atmosphere_ground, vec3(1.0), smoothstep(0.0, 1.0, height_fraction)) * params.density * atmosphere_ambient;
 			alpha += (1.0 - dt) * (1.0 - alpha);
 			L += (ambient + beers_total * atmosphere_sun * phase * alpha) * T * t;
 		}
@@ -282,7 +333,7 @@ vec4 sky(vec3 dir) {
 		// Draw cloud shape
 		col = vec4(background * (1.0 - volume.a) + volume.xyz, 1.0);
 		// Blend distant clouds into the sky
-		col.xyz = mix(clamp(col.xyz, vec3(0.0), vec3(100.0)), clamp(background, vec3(0.0), vec3(100.0)), smoothstep(0.6, 1.0, 1.0 - dir.y));
+		col.xyz = mix(clamp(col.xyz, vec3(0.0), vec3(100.0)), clamp(background, vec3(0.0), vec3(100.0)), smoothstep(0.6, 1.3, 1.0 - dir.y));
 	} else {
 		col = vec4(atmosphere(dir), 1.0);
 	}

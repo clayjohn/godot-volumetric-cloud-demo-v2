@@ -73,10 +73,14 @@ var frames_to_update : int = 64 # needs to always be a power of two value
 var update_region_size : int = 96
 var num_workgroups : int = 12
 
+@export
 var textures : Array = []
 var texture_to_update : int = 0
 var texture_to_blend_from : int = 1
 var texture_to_blend_to : int = 2
+
+var sky_lut := load("res://atmosphere/sky_lut.tres")
+var transmittance_tex := load("res://atmosphere/transmittance_lut.tres")
 
 var frame = 0
 
@@ -276,6 +280,30 @@ func _create_noise_uniform_set() -> RID:
 	uniform.binding = 2
 	uniform.add_id(sampler)
 	uniform.add_id(W_rd)
+	uniforms.push_back(uniform)
+	
+	sampler_state = RDSamplerState.new()
+	sampler_state.repeat_u = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
+	sampler_state.repeat_v = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
+	sampler_state.repeat_w = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
+	sampler_state.mag_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
+	sampler_state.min_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
+	sampler_state.mip_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
+	
+	sampler = rd.sampler_create(sampler_state)
+	
+	uniform = RDUniform.new()
+	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
+	uniform.binding = 3
+	uniform.add_id(sampler)
+	uniform.add_id(sky_lut.texture_rd)
+	uniforms.push_back(uniform)
+	
+	uniform = RDUniform.new()
+	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
+	uniform.binding = 4
+	uniform.add_id(sampler)
+	uniform.add_id(transmittance_tex.texture_rd)
 	uniforms.push_back(uniform)
 
 	return rd.uniform_set_create(uniforms, shader_rd, 1)

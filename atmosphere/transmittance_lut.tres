@@ -3,4 +3,6 @@
 [ext_resource type="Script" path="res://atmosphere/transmittance_lut.gd" id="1_ujl1v"]
 
 [resource]
+resource_local_to_scene = true
+texture_rd_rid = RID(2566315973807236)
 script = ExtResource("1_ujl1v")
