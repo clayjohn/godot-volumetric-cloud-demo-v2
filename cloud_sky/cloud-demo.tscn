@@ -1,0 +1,23 @@
+[gd_scene load_steps=4 format=3 uid="uid://cj5hq40giurw8"]
+
+[ext_resource type="Sky" uid="uid://b6ffjku47471j" path="res://cloud_sky/clouds_sky.tres" id="1_jderp"]
+[ext_resource type="Script" path="res://cloud_sky/sun.gd" id="2_xh5fm"]
+
+[sub_resource type="Environment" id="Environment_hxkob"]
+background_mode = 2
+sky = ExtResource("1_jderp")
+tonemap_mode = 3
+tonemap_white = 3.53
+
+[node name="CloudMaterialTest" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_hxkob")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(0.105461, -0.534173, -0.838771, -0.00147199, 0.84339, -0.5373, 0.994422, 0.0578988, 0.0881584, 0, 0, 0)
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.0492487, -0.00526289, -0.998773, -0.993118, -0.106134, 0.0495291, -0.106264, 0.994338, 2.69869e-07, 0.00832629, 2.33525, 0)
+light_energy = 5.0
+script = ExtResource("2_xh5fm")

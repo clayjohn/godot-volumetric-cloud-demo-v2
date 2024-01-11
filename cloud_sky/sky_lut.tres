@@ -1,0 +1,8 @@
+[gd_resource type="Texture2DRD" load_steps=2 format=3 uid="uid://ctiv7he6yc5y0"]
+
+[ext_resource type="Script" path="res://cloud_sky/sky_lut.gd" id="1_cy3k3"]
+
+[resource]
+resource_local_to_scene = true
+texture_rd_rid = RID(545331997580843)
+script = ExtResource("1_cy3k3")
