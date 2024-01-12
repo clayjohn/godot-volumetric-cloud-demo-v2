@@ -104,7 +104,7 @@ void sky() {
 	vec4 blend_from = textureLod(blend_from_texture, norm.xz, 0.0);
 	vec4 blend_to = textureLod(blend_to_texture, norm.xz, 0.0);
 	vec4 clouds = mix(blend_from, blend_to, blend_amount);
-	vec3 background = get_atmo(EYEDIR) * 5.0;
+	vec3 background = get_atmo(EYEDIR);
 	COLOR = background * (1.0-clouds.a) + clouds.xyz;
 	COLOR = mix(clamp(COLOR, vec3(0.0), vec3(100.0)), clamp(background, vec3(0.0), vec3(100.0)), smoothstep(0.6, 1.0, 1.0 - EYEDIR.y));
 }

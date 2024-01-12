@@ -4,6 +4,7 @@ extends Texture2DRD
 var texture_size := Vector2i(200, 100)
 var light_direction := Vector3(0.0, -1.0, 0.0)
 var needs_update = true
+var initialized = false
 
 var rd : RenderingDevice
 var shader : RID
@@ -15,13 +16,16 @@ var lut_set : RID
 var transmittance_tex := load("res://cloud_sky/transmittance_lut.tres")
 
 func _init():
-	RenderingServer.call_on_render_thread(_initialize_compute_code)
+	RenderingServer.call_on_render_thread.call_deferred(_initialize_compute_code)
 
 func request_update():
 	needs_update = true
 
 func update_lut(sun_direction : Vector3):
 	light_direction = sun_direction
+	if not initialized:
+		print("Attempting to update uninitialized sky lut")
+		return
 	if needs_update:
 		RenderingServer.call_on_render_thread(render_lut)
 
@@ -54,8 +58,6 @@ func _create_uniform_set_for_sampling() -> RID:
 	return rd.uniform_set_create(uniforms, shader, 1)
 
 func _initialize_compute_code():
-	# As this becomes part of our normal frame rendering,
-	# we use our main rendering device here.
 	rd = RenderingServer.get_rendering_device()
 
 	# Create our shader
@@ -88,7 +90,7 @@ func _initialize_compute_code():
 
 	texture_rd_rid = texture_rd
 	
-	render_lut()
+	initialized = true
 
 func render_lut():
 	var push_constant : PackedFloat32Array = PackedFloat32Array()

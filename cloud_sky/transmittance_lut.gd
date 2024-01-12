@@ -11,7 +11,7 @@ var texture_rd : RID
 var texture_set :RID
 
 func _init():
-	RenderingServer.call_on_render_thread(_initialize_compute_code)
+	RenderingServer.call_on_render_thread.call_deferred(_initialize_compute_code)
 
 func _create_uniform_set(texture_rd : RID) -> RID:
 	var uniform := RDUniform.new()
@@ -22,8 +22,6 @@ func _create_uniform_set(texture_rd : RID) -> RID:
 	
 
 func _initialize_compute_code():
-	# As this becomes part of our normal frame rendering,
-	# we use our main rendering device here.
 	rd = RenderingServer.get_rendering_device()
 
 	# Create our shader

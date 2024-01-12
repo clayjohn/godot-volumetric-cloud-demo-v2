@@ -67,6 +67,7 @@ var transmittance_tex := load("res://cloud_sky/transmittance_lut.tres")
 var frame = 0
 
 var can_run = false
+var needs_full_sky_init = true
 
 func _init():
 	var frames_sqrt = sqrt(frames_to_update)
@@ -75,16 +76,16 @@ func _init():
 
 	sky_material = ShaderMaterial.new()
 	sky_material.shader = preload("res://cloud_sky/clouds.gdshader")
-	sky_material.set_shader_parameter("source_panorama", preload("res://cloud_sky/sky_lut.tres"))
-	sky_material.set_shader_parameter("source_transmittance", preload("res://cloud_sky/transmittance_lut.tres"))
+	sky_material.set_shader_parameter("source_panorama", sky_lut)
+	sky_material.set_shader_parameter("source_transmittance", transmittance_tex)
 	sky_material.set_shader_parameter("sun_disk_scale", sun_disk_scale)
-
-	RenderingServer.call_on_render_thread(_initialize_compute_code.bind(texture_size))
-
-	initialize_sky()
+	RenderingServer.call_on_render_thread.call_deferred(_initialize_compute_code.bind(texture_size))
 
 	# This calls "update_sky" at the beginning of the render loop automatically.
 	RenderingServer.connect("frame_pre_draw", update_sky)
+
+func request_full_sky_init():
+	needs_full_sky_init = true
 
 # Initialize and update the sky so it is visible in the first frame.
 func initialize_sky():
@@ -93,21 +94,18 @@ func initialize_sky():
 		update_sky()
 
 func update_sky():
-	if len(textures) < 3:
-		return
-
 	if not can_run:
 		return
-		
-	#if not sun:
-		#return
+
+	if needs_full_sky_init:
+		needs_full_sky_init = false
+		initialize_sky()
 
 	if frame >= frames_to_update:
 		# Increase our next texture index
 		texture_to_update = (texture_to_update + 1) % 3
 		texture_to_blend_from = (texture_to_blend_from + 1) % 3
 		texture_to_blend_to = (texture_to_blend_to + 1) % 3
-		
 		_update_per_frame_data() # Only call once per update otherwise quads get out of sync
 
 		sky_material.set_shader_parameter("blend_from_texture", textures[texture_to_blend_from])
@@ -161,7 +159,6 @@ var noise_uniform_set : RID = RID()
 var sampler
 
 func _render_process(p_texture_to_update):
-	#if not textures[p_texture_to_update].is_valid():
 	textures[p_texture_to_update].texture_rd_rid = texture_rd[p_texture_to_update]
 
 	var push_constant = _fill_push_constant()
@@ -282,9 +279,6 @@ func _create_noise_uniform_set() -> RID:
 	return rd.uniform_set_create(uniforms, shader_rd, 1)
 
 func _initialize_compute_code(p_texture_size):
-	can_run = true
-	# As this becomes part of our normal frame rendering,
-	# we use our main rendering device here.
 	rd = RenderingServer.get_rendering_device()
 
 	# Create our shader
@@ -293,6 +287,7 @@ func _initialize_compute_code(p_texture_size):
 	shader_rd = rd.shader_create_from_spirv(shader_spirv)
 	if not shader_rd.is_valid():
 		can_run = false
+		return
 	pipeline = rd.compute_pipeline_create(shader_rd)
 
 	# Create our textures to manage our wave
@@ -319,7 +314,8 @@ func _initialize_compute_code(p_texture_size):
 		# Now create our uniform set so we can use these textures in our shader
 		texture_set[i] = _create_uniform_set(texture_rd[i])
 		textures.push_back(Texture2DRD.new())
-		#textures[i].texture_rd_rid = texture_rd[i]
+
+	can_run = true
 
 func _free_compute_resources():
 	# Note that our sets and pipeline are cleaned up automatically as they are dependencies :P

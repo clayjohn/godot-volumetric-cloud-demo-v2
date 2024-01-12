@@ -12,9 +12,6 @@ layout(set = 1, binding = 1) uniform sampler3D small_scale_noise;
 layout(set = 1, binding = 2) uniform sampler2D weather_noise;
 layout(set = 1, binding = 3) uniform sampler2D sky_lut;
 
-#define SUN_ENABLED 1
-#define MOON_ENABLED 2
-
 // Our push constant.
 // Push constants have a max size of 128 bytes (32 floats).
 layout(push_constant, std430) uniform Params {
