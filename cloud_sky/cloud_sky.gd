@@ -70,13 +70,12 @@ var can_run = false
 var needs_full_sky_init = true
 
 func _init():
-	var frames_sqrt = sqrt(frames_to_update)
+	var frames_sqrt : int = int(sqrt(frames_to_update))
 	update_region_size = texture_size / frames_sqrt
 	num_workgroups = update_region_size / 8
 
 	sky_material = ShaderMaterial.new()
 	sky_material.shader = preload("res://cloud_sky/clouds.gdshader")
-	sky_material.set_shader_parameter("source_panorama", sky_lut)
 	sky_material.set_shader_parameter("source_transmittance", transmittance_tex)
 	sky_material.set_shader_parameter("sun_disk_scale", sun_disk_scale)
 	RenderingServer.call_on_render_thread.call_deferred(_initialize_compute_code.bind(texture_size))
@@ -110,6 +109,9 @@ func update_sky():
 
 		sky_material.set_shader_parameter("blend_from_texture", textures[texture_to_blend_from])
 		sky_material.set_shader_parameter("blend_to_texture", textures[texture_to_blend_to])
+		
+		sky_material.set_shader_parameter("sky_blend_from_texture", sky_lut.back_texture[0])
+		sky_material.set_shader_parameter("sky_blend_to_texture", sky_lut.back_texture[1])
 
 		frame = 0
 
@@ -156,7 +158,7 @@ var pipeline : RID
 var texture_rd : Array = [ RID(), RID(), RID() ]
 var texture_set : Array = [ RID(), RID(), RID() ]
 var noise_uniform_set : RID = RID()
-var sampler
+var sky_uniform_set : Array = [ RID(), RID(), RID() ]
 
 func _render_process(p_texture_to_update):
 	textures[p_texture_to_update].texture_rd_rid = texture_rd[p_texture_to_update]
@@ -166,6 +168,7 @@ func _render_process(p_texture_to_update):
 	# Run our compute shader.
 	var compute_list := rd.compute_list_begin()
 	rd.compute_list_bind_compute_pipeline(compute_list, pipeline)
+	rd.compute_list_bind_uniform_set(compute_list, sky_uniform_set[(sky_lut.current_texture + 2) % 3], 2)
 	rd.compute_list_bind_uniform_set(compute_list, noise_uniform_set, 1)
 	rd.compute_list_bind_uniform_set(compute_list, texture_set[p_texture_to_update], 0)
 
@@ -227,7 +230,7 @@ func _create_noise_uniform_set() -> RID:
 	sampler_state.min_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
 	sampler_state.mip_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
 	
-	sampler = rd.sampler_create(sampler_state)
+	var sampler = rd.sampler_create(sampler_state)
 	
 	var large_scale_noise = preload("res://cloud_sky/perlworlnoise.tga")
 	var LSN_rd = RenderingServer.texture_get_rd_texture(large_scale_noise.get_rid())
@@ -273,10 +276,33 @@ func _create_noise_uniform_set() -> RID:
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
 	uniform.binding = 3
 	uniform.add_id(sampler)
-	uniform.add_id(sky_lut.texture_rd)
+	uniform.add_id(sky_lut.texture_rd[0])
 	uniforms.push_back(uniform)
 
 	return rd.uniform_set_create(uniforms, shader_rd, 1)
+	
+func _create_sky_uniform_set(tex_id : int) -> RID:
+	var uniforms = []
+	
+	var sampler_state = RDSamplerState.new()
+	sampler_state = RDSamplerState.new()
+	sampler_state.repeat_u = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
+	sampler_state.repeat_v = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
+	sampler_state.repeat_w = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
+	sampler_state.mag_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
+	sampler_state.min_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
+	sampler_state.mip_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
+	
+	var sampler = rd.sampler_create(sampler_state)
+	
+	var uniform = RDUniform.new()
+	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
+	uniform.binding = 0
+	uniform.add_id(sampler)
+	uniform.add_id(sky_lut.texture_rd[tex_id])
+	uniforms.push_back(uniform)
+	
+	return rd.uniform_set_create(uniforms, shader_rd, 2)
 
 func _initialize_compute_code(p_texture_size):
 	rd = RenderingServer.get_rendering_device()
@@ -303,6 +329,9 @@ func _initialize_compute_code(p_texture_size):
 	if Engine.is_editor_hint():
 		tf.usage_bits += RenderingDevice.TEXTURE_USAGE_CAN_COPY_FROM_BIT
 	noise_uniform_set = _create_noise_uniform_set()
+	sky_uniform_set[0] = _create_sky_uniform_set(0)
+	sky_uniform_set[1] = _create_sky_uniform_set(1)
+	sky_uniform_set[2] = _create_sky_uniform_set(2)
 
 	for i in range(3):
 		# Create our texture

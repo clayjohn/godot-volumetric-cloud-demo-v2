@@ -10,7 +10,8 @@ layout(rgba16f, set = 0, binding = 0) uniform restrict writeonly image2D current
 layout(set = 1, binding = 0) uniform sampler3D large_scale_noise;
 layout(set = 1, binding = 1) uniform sampler3D small_scale_noise;
 layout(set = 1, binding = 2) uniform sampler2D weather_noise;
-layout(set = 1, binding = 3) uniform sampler2D sky_lut;
+
+layout(set = 2, binding = 0) uniform sampler2D sky_lut;
 
 // Our push constant.
 // Push constants have a max size of 128 bytes (32 floats).
@@ -157,9 +158,9 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 
 	// Read sun and ambient colors from the sky LUT.
 	vec3 atmosphere_sun = getValFromSkyLUT(params.LIGHT_DIRECTION) * 0.1 * params.LIGHT_ENERGY * params.LIGHT_COLOR;
-	vec3 atmosphere_ambient = getValFromSkyLUT(normalize(vec3(1.0, 1.0, 0.0)));
+	vec3 atmosphere_ambient = getValFromSkyLUT(normalize(vec3(1.0, 1.0, 0.0))) * 0.05;
 	atmosphere_ambient = mix(atmosphere_ambient, vec3(length(atmosphere_ambient)), 0.5); // interpolate towards white with this intensity.
-	vec3 atmosphere_ground = getValFromSkyLUT(normalize(vec3(1.0, -1.0, 0.0))) * 5.0;
+	vec3 atmosphere_ground = getValFromSkyLUT(normalize(vec3(1.0, -1.0, 0.0))) * 5.0 * 0.05;
 	atmosphere_ground = mix(atmosphere_ground, params.ground_color.rgb * vec3(length(atmosphere_ground)), 0.5); // interpolate towards ground color with this intensity.
 	
 	const float weather_scale = 0.00006;
@@ -200,7 +201,7 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 			float powder_sugar_effect = 1.0 - exp(-params.density * cd * lss * 3.0 * 2.0);
 			float beers_total = 2 * beers * powder_sugar_effect;
 
-			vec3 ambient = mix(atmosphere_ground, atmosphere_ambient, smoothstep(0.0, 1.0, height_fraction)) * params.density;
+			vec3 ambient = mix(atmosphere_ground, atmosphere_ambient, smoothstep(0.0, 1.0, height_fraction));
 			alpha += (1.0 - dt) * (1.0 - alpha);
 			vec3 radiance = (ambient + beers_total * atmosphere_sun * phase) * t;
 			L += T * (radiance - radiance * dt) / max(0.0000001, t);

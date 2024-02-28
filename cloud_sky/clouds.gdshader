@@ -3,7 +3,10 @@ render_mode use_debanding;
 
 uniform sampler2D blend_from_texture : filter_linear, repeat_disable, source_color;
 uniform sampler2D blend_to_texture : filter_linear, repeat_disable, source_color;
-uniform sampler2D source_panorama : filter_linear, hint_default_black, repeat_disable;
+
+uniform sampler2D sky_blend_from_texture : filter_linear, repeat_disable, source_color;
+uniform sampler2D sky_blend_to_texture : filter_linear, repeat_disable, source_color;
+
 uniform sampler2D source_transmittance : filter_linear, hint_default_black, repeat_disable;
 
 uniform float blend_amount : hint_range(0.0, 1.0, 0.01);
@@ -35,7 +38,10 @@ vec3 getValFromSkyLUT(vec3 rayDir) {
 	uv.x = (phi / PI * 0.5 + 0.5);
     // Undo the non-linear transformation from the sky-view LUT
     uv.y = sqrt(abs(theta) / (PI * 0.5)) * sign(theta) * 0.5 + 0.5;
-    return texture(source_panorama, uv).rgb/50.0;
+
+	vec3 blend_from = texture(sky_blend_from_texture, uv).rgb;
+	vec3 blend_to = texture(sky_blend_to_texture, uv).rgb;
+    return mix(blend_from, blend_to, blend_amount) / 50.0;
 }
 
 // https://www.shadertoy.com/view/slSXRW

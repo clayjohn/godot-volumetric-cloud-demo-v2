@@ -1,6 +1,8 @@
 @tool
 extends Texture2DRD
 
+# This generates an LUT when it is loaded that is used throughout the sky system
+
 var texture_size := Vector2i(256, 64)
 
 var rd : RenderingDevice
@@ -13,11 +15,11 @@ var texture_set :RID
 func _init():
 	RenderingServer.call_on_render_thread.call_deferred(_initialize_compute_code)
 
-func _create_uniform_set(texture_rd : RID) -> RID:
+func _create_uniform_set(p_texture_rd : RID) -> RID:
 	var uniform := RDUniform.new()
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE
 	uniform.binding = 0
-	uniform.add_id(texture_rd)
+	uniform.add_id(p_texture_rd)
 	return rd.uniform_set_create([uniform], shader, 0)
 	
 

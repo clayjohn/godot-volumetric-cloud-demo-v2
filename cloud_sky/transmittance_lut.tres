@@ -3,5 +3,4 @@
 [ext_resource type="Script" path="res://cloud_sky/transmittance_lut.gd" id="1_ujl1v"]
 
 [resource]
-texture_rd_rid = RID(834589455034480)
 script = ExtResource("1_ujl1v")

@@ -19,5 +19,4 @@ transform = Transform3D(0.105461, -0.534173, -0.838771, -0.00147199, 0.84339, -0
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(-0.0492487, -0.00526289, -0.998773, -0.993118, -0.106134, 0.0495291, -0.106264, 0.994338, 2.69869e-07, 0.00832629, 2.33525, 0)
-light_energy = 5.0
 script = ExtResource("2_xh5fm")

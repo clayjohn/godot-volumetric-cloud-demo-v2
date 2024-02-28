@@ -6,11 +6,16 @@ var light_direction := Vector3(0.0, -1.0, 0.0)
 var needs_update = true
 var initialized = false
 
+var back_texture : Array = [ Texture2DRD.new(), Texture2DRD.new() ]
+var needs_full_update = true
+
 var rd : RenderingDevice
 var shader : RID
 var pipeline : RID
-var texture_rd : RID
-var texture_set : RID
+# We need three copies so we can synchronize with the clouds
+var texture_rd : Array = [ RID(), RID(), RID() ]
+var texture_set : Array = [ RID(), RID(), RID() ]
+var current_texture = 0
 var lut_set : RID
 
 var transmittance_tex := load("res://cloud_sky/transmittance_lut.tres")
@@ -21,19 +26,23 @@ func _init():
 func request_update():
 	needs_update = true
 
+# This should be called once to update the entire sky.
 func update_lut(sun_direction : Vector3):
 	light_direction = sun_direction
 	if not initialized:
 		print("Attempting to update uninitialized sky lut")
 		return
-	if needs_update:
+	RenderingServer.call_on_render_thread(render_lut)
+	if needs_full_update:
 		RenderingServer.call_on_render_thread(render_lut)
+		RenderingServer.call_on_render_thread(render_lut)
+		needs_full_update = false
 
-func _create_uniform_set(texture_rd : RID) -> RID:
+func _create_uniform_set(p_texture_rd : RID) -> RID:
 	var uniform := RDUniform.new()
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE
 	uniform.binding = 0
-	uniform.add_id(texture_rd)
+	uniform.add_id(p_texture_rd)
 	return rd.uniform_set_create([uniform], shader, 0)
 	
 func _create_uniform_set_for_sampling() -> RID:
@@ -82,13 +91,19 @@ func _initialize_compute_code():
 	if Engine.is_editor_hint():
 		tf.usage_bits += RenderingDevice.TEXTURE_USAGE_CAN_COPY_FROM_BIT
 
-	# Create our texture
-	texture_rd = rd.texture_create(tf, RDTextureView.new(), [])
+	# Create our textures
+	texture_rd[0] = rd.texture_create(tf, RDTextureView.new(), [])
+	texture_rd[1] = rd.texture_create(tf, RDTextureView.new(), [])
+	texture_rd[2] = rd.texture_create(tf, RDTextureView.new(), [])
 	# Now create our uniform set so we can use these textures in our shader
-	texture_set = _create_uniform_set(texture_rd)
+	texture_set[0] = _create_uniform_set(texture_rd[0])
+	texture_set[1] = _create_uniform_set(texture_rd[1])
+	texture_set[2] = _create_uniform_set(texture_rd[2])
 	lut_set = _create_uniform_set_for_sampling()
 
-	texture_rd_rid = texture_rd
+	texture_rd_rid = texture_rd[0]
+	back_texture[0].texture_rd_rid = texture_rd[1]
+	back_texture[1].texture_rd_rid = texture_rd[2]
 	
 	initialized = true
 
@@ -108,9 +123,14 @@ func render_lut():
 	var compute_list := rd.compute_list_begin()
 	rd.compute_list_bind_compute_pipeline(compute_list, pipeline)
 	rd.compute_list_set_push_constant(compute_list, push_constant.to_byte_array(), push_constant.size() * 4)
-	rd.compute_list_bind_uniform_set(compute_list, texture_set, 0)
+	rd.compute_list_bind_uniform_set(compute_list, texture_set[current_texture], 0)
 	rd.compute_list_bind_uniform_set(compute_list, lut_set, 1)
 	rd.compute_list_dispatch(compute_list, 25, 13, 1)
 	rd.compute_list_end()
+
+	texture_rd_rid = texture_rd[current_texture]
+	current_texture = (current_texture + 1) % 3
+	back_texture[0].texture_rd_rid = texture_rd[current_texture]
+	back_texture[1].texture_rd_rid = texture_rd[(current_texture + 1) % 3]
 	
 	needs_update = false
