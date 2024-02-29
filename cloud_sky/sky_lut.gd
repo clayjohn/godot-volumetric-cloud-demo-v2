@@ -21,6 +21,8 @@ var lut_set : RID
 var transmittance_tex := load("res://cloud_sky/transmittance_lut.tres")
 
 func _init():
+	rd = RenderingServer.get_rendering_device()
+	RenderingServer.call_on_render_thread(_initialize_texture)
 	RenderingServer.call_on_render_thread.call_deferred(_initialize_compute_code)
 
 func request_update():
@@ -66,19 +68,7 @@ func _create_uniform_set_for_sampling() -> RID:
 	
 	return rd.uniform_set_create(uniforms, shader, 1)
 
-func _initialize_compute_code():
-	rd = RenderingServer.get_rendering_device()
-
-	# Create our shader
-	var shader_file = load("res://cloud_sky/sky-lut.glsl")
-	var shader_spirv: RDShaderSPIRV = shader_file.get_spirv()
-	shader = rd.shader_create_from_spirv(shader_spirv)
-	if not shader.is_valid():
-		print("you got an invalid shader buddy")
-		return
-	pipeline = rd.compute_pipeline_create(shader)
-
-	# Create our textures to manage our wave
+func _initialize_texture():
 	var tf : RDTextureFormat = RDTextureFormat.new()
 	tf.format = RenderingDevice.DATA_FORMAT_R16G16B16A16_SFLOAT
 	tf.texture_type = RenderingDevice.TEXTURE_TYPE_2D
@@ -95,6 +85,17 @@ func _initialize_compute_code():
 	texture_rd[0] = rd.texture_create(tf, RDTextureView.new(), [])
 	texture_rd[1] = rd.texture_create(tf, RDTextureView.new(), [])
 	texture_rd[2] = rd.texture_create(tf, RDTextureView.new(), [])
+
+func _initialize_compute_code():
+	# Create our shader
+	var shader_file = load("res://cloud_sky/sky-lut.glsl")
+	var shader_spirv: RDShaderSPIRV = shader_file.get_spirv()
+	shader = rd.shader_create_from_spirv(shader_spirv)
+	if not shader.is_valid():
+		print("you got an invalid shader buddy")
+		return
+	pipeline = rd.compute_pipeline_create(shader)
+
 	# Now create our uniform set so we can use these textures in our shader
 	texture_set[0] = _create_uniform_set(texture_rd[0])
 	texture_set[1] = _create_uniform_set(texture_rd[1])
