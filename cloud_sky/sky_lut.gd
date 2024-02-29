@@ -18,7 +18,7 @@ var texture_set : Array = [ RID(), RID(), RID() ]
 var current_texture = 0
 var lut_set : RID
 
-var transmittance_tex := load("res://cloud_sky/transmittance_lut.tres")
+var transmittance_tex := load(get_script().resource_path.get_base_dir() + "/transmittance_lut.tres")
 
 func _init():
 	rd = RenderingServer.get_rendering_device()
@@ -88,7 +88,7 @@ func _initialize_texture():
 
 func _initialize_compute_code():
 	# Create our shader
-	var shader_file = load("res://cloud_sky/sky-lut.glsl")
+	var shader_file = load(get_script().resource_path.get_base_dir() + "/sky-lut.glsl")
 	var shader_spirv: RDShaderSPIRV = shader_file.get_spirv()
 	shader = rd.shader_create_from_spirv(shader_spirv)
 	if not shader.is_valid():

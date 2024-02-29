@@ -1,8 +1,8 @@
 @tool
 extends DirectionalLight3D
 
-var atmosphere_tex := load("res://cloud_sky/sky_lut.tres")
-var cloud_sky := load("res://cloud_sky/clouds_sky.tres")
+var atmosphere_tex := load(get_script().resource_path.get_base_dir() + "/sky_lut.tres")
+var cloud_sky := load(get_script().resource_path.get_base_dir() + "/clouds_sky.tres")
 
 func _ready():
 	cloud_sky.sun = self

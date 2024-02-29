@@ -43,7 +43,7 @@ func _initialize_texture():
 
 func _initialize_compute_code():
 	# Create our shader
-	var shader_file = load("res://cloud_sky/transmittance-lut.glsl")
+	var shader_file = load(get_script().resource_path.get_base_dir() + "/transmittance-lut.glsl")
 	var shader_spirv: RDShaderSPIRV = shader_file.get_spirv()
 	shader = rd.shader_create_from_spirv(shader_spirv)
 	if not shader.is_valid():

@@ -61,8 +61,8 @@ var texture_to_update : int = 0
 var texture_to_blend_from : int = 1
 var texture_to_blend_to : int = 2
 
-var sky_lut := load("res://cloud_sky/sky_lut.tres")
-var transmittance_tex := load("res://cloud_sky/transmittance_lut.tres")
+var sky_lut := load(get_script().resource_path.get_base_dir() + "/sky_lut.tres")
+var transmittance_tex := load(get_script().resource_path.get_base_dir() + "/transmittance_lut.tres")
 
 var frame = 0
 
@@ -75,7 +75,7 @@ func _init():
 	num_workgroups = update_region_size / 8
 
 	sky_material = ShaderMaterial.new()
-	sky_material.shader = preload("res://cloud_sky/clouds.gdshader")
+	sky_material.shader = preload("clouds.gdshader")
 	sky_material.set_shader_parameter("source_transmittance", transmittance_tex)
 	sky_material.set_shader_parameter("sun_disk_scale", sun_disk_scale)
 	RenderingServer.call_on_render_thread.call_deferred(_initialize_compute_code.bind(texture_size))
@@ -232,7 +232,7 @@ func _create_noise_uniform_set() -> RID:
 	
 	var sampler = rd.sampler_create(sampler_state)
 	
-	var large_scale_noise = preload("res://cloud_sky/perlworlnoise.tga")
+	var large_scale_noise = preload("perlworlnoise.tga")
 	var LSN_rd = RenderingServer.texture_get_rd_texture(large_scale_noise.get_rid())
 	
 	var uniform := RDUniform.new()
@@ -242,7 +242,7 @@ func _create_noise_uniform_set() -> RID:
 	uniform.add_id(LSN_rd)
 	uniforms.push_back(uniform)
 	
-	var small_scale_noise = preload("res://cloud_sky/worlnoise.bmp")
+	var small_scale_noise = preload("worlnoise.bmp")
 	var SSN_rd = RenderingServer.texture_get_rd_texture(small_scale_noise.get_rid())
 	
 	uniform = RDUniform.new()
@@ -252,7 +252,7 @@ func _create_noise_uniform_set() -> RID:
 	uniform.add_id(SSN_rd)
 	uniforms.push_back(uniform)
 	
-	var weather_noise = preload("res://cloud_sky/weather.bmp")
+	var weather_noise = preload("weather.bmp")
 	var W_rd = RenderingServer.texture_get_rd_texture(weather_noise.get_rid())
 	
 	uniform = RDUniform.new()
@@ -308,7 +308,7 @@ func _initialize_compute_code(p_texture_size):
 	rd = RenderingServer.get_rendering_device()
 
 	# Create our shader
-	var shader_file = load("res://cloud_sky/clouds.glsl")
+	var shader_file = load(get_script().resource_path.get_base_dir() + "/clouds.glsl")
 	var shader_spirv: RDShaderSPIRV = shader_file.get_spirv()
 	shader_rd = rd.shader_create_from_spirv(shader_spirv)
 	if not shader_rd.is_valid():
