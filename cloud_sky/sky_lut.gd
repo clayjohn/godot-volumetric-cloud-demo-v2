@@ -17,6 +17,7 @@ var texture_rd : Array = [ RID(), RID(), RID() ]
 var texture_set : Array = [ RID(), RID(), RID() ]
 var current_texture = 0
 var lut_set : RID
+var sampler : RID
 
 var transmittance_tex := load(get_script().resource_path.get_base_dir() + "/transmittance_lut.tres")
 
@@ -24,6 +25,16 @@ func _init():
 	rd = RenderingServer.get_rendering_device()
 	RenderingServer.call_on_render_thread(_initialize_texture)
 	RenderingServer.call_on_render_thread.call_deferred(_initialize_compute_code)
+
+func _notification(what):
+	if what == NOTIFICATION_PREDELETE:
+		for i in range(3):
+			if texture_rd[i]:
+				rd.free_rid(texture_rd[i])
+		if shader:
+			rd.free_rid(shader)
+		if sampler:
+			rd.free_rid(sampler)
 
 func request_update():
 	needs_update = true
@@ -56,7 +67,7 @@ func _create_uniform_set_for_sampling() -> RID:
 	sampler_state.min_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
 	sampler_state.mip_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
 	
-	var sampler = rd.sampler_create(sampler_state)
+	sampler = rd.sampler_create(sampler_state)
 	
 	var uniforms = []
 	var uniform := RDUniform.new()

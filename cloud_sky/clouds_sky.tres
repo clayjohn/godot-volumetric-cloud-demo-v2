@@ -1,29 +1,10 @@
-[gd_resource type="Sky" load_steps=9 format=3 uid="uid://b6ffjku47471j"]
+[gd_resource type="Sky" load_steps=3 format=3 uid="uid://b6ffjku47471j"]
 
 [ext_resource type="Script" path="res://cloud_sky/cloud_sky.gd" id="1_ck7j2"]
-[ext_resource type="Shader" path="res://cloud_sky/clouds.gdshader" id="2_36l73"]
-[ext_resource type="Texture2D" uid="uid://262btfwc1fwn" path="res://cloud_sky/transmittance_lut.tres" id="4_dk4sc"]
-
-[sub_resource type="Texture2DRD" id="Texture2DRD_12y5r"]
-
-[sub_resource type="Texture2DRD" id="Texture2DRD_bo1at"]
-
-[sub_resource type="Texture2DRD" id="Texture2DRD_0r0oi"]
-
-[sub_resource type="Texture2DRD" id="Texture2DRD_doixi"]
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_1brfb"]
-shader = ExtResource("2_36l73")
-shader_parameter/blend_amount = 0.40625
-shader_parameter/sun_disk_scale = 2.0
-shader_parameter/blend_from_texture = SubResource("Texture2DRD_12y5r")
-shader_parameter/blend_to_texture = SubResource("Texture2DRD_bo1at")
-shader_parameter/sky_blend_from_texture = SubResource("Texture2DRD_0r0oi")
-shader_parameter/sky_blend_to_texture = SubResource("Texture2DRD_doixi")
-shader_parameter/source_transmittance = ExtResource("4_dk4sc")
+[ext_resource type="Material" uid="uid://d15xlqtr7vk3d" path="res://cloud_sky/clouds_material.tres" id="2_m3o4j"]
 
 [resource]
-sky_material = SubResource("ShaderMaterial_1brfb")
+sky_material = ExtResource("2_m3o4j")
 process_mode = 2
 radiance_size = 1
 script = ExtResource("1_ck7j2")

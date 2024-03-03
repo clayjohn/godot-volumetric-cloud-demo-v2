@@ -74,9 +74,6 @@ func _init():
 	update_region_size = texture_size / frames_sqrt
 	num_workgroups = update_region_size / 8
 
-	sky_material = ShaderMaterial.new()
-	sky_material.shader = preload("clouds.gdshader")
-	sky_material.set_shader_parameter("source_transmittance", transmittance_tex)
 	sky_material.set_shader_parameter("sun_disk_scale", sun_disk_scale)
 	RenderingServer.call_on_render_thread.call_deferred(_initialize_compute_code.bind(texture_size))
 
@@ -143,6 +140,19 @@ func _validate_property(property):
 	if property.name == "sky_material" or property.name == "process_mode":
 		property.usage &= ~PROPERTY_USAGE_EDITOR
 
+func _notification(what):
+	if what == NOTIFICATION_PREDELETE:
+		for i in range(3):
+			if texture_rd[i]:
+				rd.free_rid(texture_rd[i])
+		if shader_rd:
+			rd.free_rid(shader_rd)
+		if noise_sampler:
+			rd.free_rid(noise_sampler)
+		if sky_sampler:
+			rd.free_rid(sky_sampler)
+
+
 ###############################################################################
 # Everything after this point is designed to run on our rendering thread
 
@@ -159,6 +169,8 @@ var texture_rd : Array = [ RID(), RID(), RID() ]
 var texture_set : Array = [ RID(), RID(), RID() ]
 var noise_uniform_set : RID = RID()
 var sky_uniform_set : Array = [ RID(), RID(), RID() ]
+var noise_sampler
+var sky_sampler
 
 func _render_process(p_texture_to_update):
 	textures[p_texture_to_update].texture_rd_rid = texture_rd[p_texture_to_update]
@@ -230,7 +242,7 @@ func _create_noise_uniform_set() -> RID:
 	sampler_state.min_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
 	sampler_state.mip_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
 	
-	var sampler = rd.sampler_create(sampler_state)
+	noise_sampler = rd.sampler_create(sampler_state)
 	
 	var large_scale_noise = preload("perlworlnoise.tga")
 	var LSN_rd = RenderingServer.texture_get_rd_texture(large_scale_noise.get_rid())
@@ -238,7 +250,7 @@ func _create_noise_uniform_set() -> RID:
 	var uniform := RDUniform.new()
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
 	uniform.binding = 0
-	uniform.add_id(sampler)
+	uniform.add_id(noise_sampler)
 	uniform.add_id(LSN_rd)
 	uniforms.push_back(uniform)
 	
@@ -248,7 +260,7 @@ func _create_noise_uniform_set() -> RID:
 	uniform = RDUniform.new()
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
 	uniform.binding = 1
-	uniform.add_id(sampler)
+	uniform.add_id(noise_sampler)
 	uniform.add_id(SSN_rd)
 	uniforms.push_back(uniform)
 	
@@ -258,47 +270,19 @@ func _create_noise_uniform_set() -> RID:
 	uniform = RDUniform.new()
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
 	uniform.binding = 2
-	uniform.add_id(sampler)
+	uniform.add_id(noise_sampler)
 	uniform.add_id(W_rd)
-	uniforms.push_back(uniform)
-	
-	sampler_state = RDSamplerState.new()
-	sampler_state.repeat_u = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
-	sampler_state.repeat_v = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
-	sampler_state.repeat_w = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
-	sampler_state.mag_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
-	sampler_state.min_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
-	sampler_state.mip_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
-	
-	sampler = rd.sampler_create(sampler_state)
-	
-	uniform = RDUniform.new()
-	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
-	uniform.binding = 3
-	uniform.add_id(sampler)
-	uniform.add_id(sky_lut.texture_rd[0])
 	uniforms.push_back(uniform)
 
 	return rd.uniform_set_create(uniforms, shader_rd, 1)
 	
 func _create_sky_uniform_set(tex_id : int) -> RID:
 	var uniforms = []
-	
-	var sampler_state = RDSamplerState.new()
-	sampler_state = RDSamplerState.new()
-	sampler_state.repeat_u = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
-	sampler_state.repeat_v = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
-	sampler_state.repeat_w = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
-	sampler_state.mag_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
-	sampler_state.min_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
-	sampler_state.mip_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
-	
-	var sampler = rd.sampler_create(sampler_state)
-	
+		
 	var uniform = RDUniform.new()
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_SAMPLER_WITH_TEXTURE
 	uniform.binding = 0
-	uniform.add_id(sampler)
+	uniform.add_id(sky_sampler)
 	uniform.add_id(sky_lut.texture_rd[tex_id])
 	uniforms.push_back(uniform)
 	
@@ -329,6 +313,18 @@ func _initialize_compute_code(p_texture_size):
 	if Engine.is_editor_hint():
 		tf.usage_bits += RenderingDevice.TEXTURE_USAGE_CAN_COPY_FROM_BIT
 	noise_uniform_set = _create_noise_uniform_set()
+
+	var sampler_state = RDSamplerState.new()
+	sampler_state = RDSamplerState.new()
+	sampler_state.repeat_u = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
+	sampler_state.repeat_v = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
+	sampler_state.repeat_w = RenderingDevice.SAMPLER_REPEAT_MODE_CLAMP_TO_EDGE
+	sampler_state.mag_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
+	sampler_state.min_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
+	sampler_state.mip_filter = RenderingDevice.SAMPLER_FILTER_LINEAR
+	
+	sky_sampler = rd.sampler_create(sampler_state)
+
 	sky_uniform_set[0] = _create_sky_uniform_set(0)
 	sky_uniform_set[1] = _create_sky_uniform_set(1)
 	sky_uniform_set[2] = _create_sky_uniform_set(2)
@@ -345,12 +341,3 @@ func _initialize_compute_code(p_texture_size):
 		textures.push_back(Texture2DRD.new())
 
 	can_run = true
-
-func _free_compute_resources():
-	# Note that our sets and pipeline are cleaned up automatically as they are dependencies :P
-	for i in range(3):
-		if texture_rd[i]:
-			rd.free_rid(texture_rd[i])
-
-	if shader_rd:
-		rd.free_rid(shader_rd)

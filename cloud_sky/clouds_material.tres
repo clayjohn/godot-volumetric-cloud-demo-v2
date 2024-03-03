@@ -1,0 +1,22 @@
+[gd_resource type="ShaderMaterial" load_steps=7 format=3 uid="uid://d15xlqtr7vk3d"]
+
+[ext_resource type="Shader" path="res://cloud_sky/clouds.gdshader" id="1_o3hmd"]
+[ext_resource type="Texture2D" uid="uid://262btfwc1fwn" path="res://cloud_sky/transmittance_lut.tres" id="2_ydq55"]
+
+[sub_resource type="Texture2DRD" id="Texture2DRD_0himv"]
+
+[sub_resource type="Texture2DRD" id="Texture2DRD_4pd8p"]
+
+[sub_resource type="Texture2DRD" id="Texture2DRD_j4yri"]
+
+[sub_resource type="Texture2DRD" id="Texture2DRD_12v3d"]
+
+[resource]
+shader = ExtResource("1_o3hmd")
+shader_parameter/blend_amount = 0.90625
+shader_parameter/sun_disk_scale = 2.0
+shader_parameter/blend_from_texture = SubResource("Texture2DRD_0himv")
+shader_parameter/blend_to_texture = SubResource("Texture2DRD_4pd8p")
+shader_parameter/sky_blend_from_texture = SubResource("Texture2DRD_j4yri")
+shader_parameter/sky_blend_to_texture = SubResource("Texture2DRD_12v3d")
+shader_parameter/source_transmittance = ExtResource("2_ydq55")

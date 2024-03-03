@@ -17,6 +17,13 @@ func _init():
 	RenderingServer.call_on_render_thread(_initialize_texture)
 	RenderingServer.call_on_render_thread.call_deferred(_initialize_compute_code)
 
+func _notification(what):
+	if what == NOTIFICATION_PREDELETE:
+		if texture_rd:
+			rd.free_rid(texture_rd)
+		if shader:
+			rd.free_rid(shader)
+
 func _create_uniform_set(p_texture_rd : RID) -> RID:
 	var uniform := RDUniform.new()
 	uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_IMAGE
