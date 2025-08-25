@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3 uid="uid://cj5hq40giurw8"]
 
 [ext_resource type="Sky" uid="uid://b6ffjku47471j" path="res://cloud_sky/clouds_sky.tres" id="1_jderp"]
-[ext_resource type="Script" path="res://cloud_sky/sun.gd" id="2_xh5fm"]
+[ext_resource type="Script" uid="uid://b55g08181nufj" path="res://cloud_sky/sun.gd" id="2_xh5fm"]
 
 [sub_resource type="Environment" id="Environment_hxkob"]
 background_mode = 2
