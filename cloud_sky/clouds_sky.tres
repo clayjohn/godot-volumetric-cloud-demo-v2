@@ -1,6 +1,6 @@
 [gd_resource type="Sky" load_steps=3 format=3 uid="uid://b6ffjku47471j"]
 
-[ext_resource type="Script" path="res://cloud_sky/cloud_sky.gd" id="1_ck7j2"]
+[ext_resource type="Script" uid="uid://dglwymlxf43da" path="res://cloud_sky/cloud_sky.gd" id="1_ck7j2"]
 [ext_resource type="Material" uid="uid://d15xlqtr7vk3d" path="res://cloud_sky/clouds_material.tres" id="2_m3o4j"]
 
 [resource]
