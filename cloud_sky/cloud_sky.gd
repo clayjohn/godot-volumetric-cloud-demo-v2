@@ -3,10 +3,19 @@ extends Sky
 
 # User configurable properties
 @export_group("Cloud Settings")
-@export
-var wind_direction : Vector2 = Vector2(1.0, 0.0)
-@export
-var wind_speed : float = 1.0
+
+# Sets the wind direction in degrees, where 0 degrees is a wind coming from the north (+X axis),
+# 90 degrees is east, 180 is south and 270 (or rather -90) is west.
+@export_custom(PROPERTY_HINT_RANGE, "-180,180,0.1,radians_as_degrees")
+var wind_direction: float = 0.0
+
+# Sets the wind speed in m/s.
+@export_custom(PROPERTY_HINT_RANGE, "0,120,0.1,or_greater,or_less,suffix:m/s")
+var wind_speed: float = 1.0
+# TODO This needs calibration if we want the m/s to make some sense. We can't really specify the
+#      altitude of the clouds right now so it's more about getting things in a believable range
+#      where 120 m/s is quite a strong hurricane.
+
 @export
 var density : float = 0.05
 @export
@@ -39,6 +48,12 @@ class FrameData:
 	var cloud_coverage : float = 0.25
 	var time_offset : float = 0.0
 	var ground_color : Color = Color(1.0, 1.0, 1.0, 1.0)
+	
+	# Properties we calculate based on the user-configurable ones
+	var _time : float = 0.0
+	var _cloud_pos : Vector2 = Vector2(0.0, 0.0)
+	var _detailed_pos : Vector2 = Vector2(0.0, 0.0)
+	var _weather_pos : Vector2 = Vector2(0.0, 0.0)
 
 	# Properties updated by the light
 	var LIGHT_DIRECTION : Vector3 = Vector3(0.0, -1.0, 0.0)
@@ -128,7 +143,7 @@ func update_sky():
 func _update_per_frame_data():
 	if sun:
 		frame_data.update_light_data(sun)
-	frame_data.wind_direction = wind_direction
+	frame_data.wind_direction = Vector2.from_angle(wind_direction)
 	frame_data.wind_speed = wind_speed
 	frame_data.density = density
 	frame_data.cloud_coverage = cloud_coverage
@@ -190,17 +205,34 @@ func _render_process(p_texture_to_update):
 
 	
 func _fill_push_constant():
+	# Before we can push those constants, there's a bit of math we need to do
+	var time = Time.get_ticks_msec() / 1000.0
+	var delta = time - frame_data._time
+	var delta2 = delta * 0.001 + 0.005 * frame_data.time_offset;
+	var wind_direction_normalized = frame_data.wind_direction.normalized()
+
+	# Which involves keeping some state and integrating positions over the latest time step
+	frame_data._time = time
+	frame_data._detailed_pos += delta * wind_direction_normalized
+	frame_data._cloud_pos += delta * wind_direction_normalized * frame_data.wind_speed
+	frame_data._weather_pos += delta2 * wind_direction_normalized * frame_data.wind_speed;
+
 	var push_constant : PackedFloat32Array = PackedFloat32Array()
-#	The order of properties here must match those in clouds.glsl, including padding
+	# The order of properties here must match those in clouds.glsl, including padding
 	push_constant.push_back(texture_size)
 	push_constant.push_back(texture_size)
 	push_constant.push_back(update_position.x)
 	push_constant.push_back(update_position.y)
+	
+	push_constant.push_back(frame_data._cloud_pos.x)
+	push_constant.push_back(frame_data._cloud_pos.y)
+	push_constant.push_back(frame_data._detailed_pos.x)
+	push_constant.push_back(frame_data._detailed_pos.y)
 
-	push_constant.push_back(frame_data.wind_direction.x)
-	push_constant.push_back(frame_data.wind_direction.y)
-	push_constant.push_back(frame_data.wind_speed)
-	push_constant.push_back(frame_data.density)
+	push_constant.push_back(frame_data._weather_pos.x)
+	push_constant.push_back(frame_data._weather_pos.y)
+	push_constant.push_back(0.0) # vec2 pad1
+	push_constant.push_back(0.0) #
 	
 	push_constant.push_back(frame_data.ground_color.r)
 	push_constant.push_back(frame_data.ground_color.g)
@@ -215,10 +247,10 @@ func _fill_push_constant():
 	push_constant.push_back(frame_data.LIGHT_COLOR.r)
 	push_constant.push_back(frame_data.LIGHT_COLOR.g)
 	push_constant.push_back(frame_data.LIGHT_COLOR.b)
-	push_constant.push_back(Time.get_ticks_msec()/1000.0)
+	push_constant.push_back(time)
 	
-	push_constant.push_back(0.0)
-	push_constant.push_back(0.0)
+	push_constant.push_back(0.0) # float pad2
+	push_constant.push_back(frame_data.density)
 	push_constant.push_back(frame_data.cloud_coverage)
 	push_constant.push_back(frame_data.time_offset)
 
