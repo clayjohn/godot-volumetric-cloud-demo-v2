@@ -19,9 +19,11 @@ layout(push_constant, std430) uniform Params {
 	vec2 texture_size;
 	vec2 update_position;
 
-	vec2 wind_direction;
-	float wind_speed;
-	float density;
+	vec2 cloud_pos;
+	vec2 detailed_pos;
+
+	vec2 weather_pos;
+	vec2 pad1;
 
 	vec4 ground_color;
 
@@ -31,7 +33,8 @@ layout(push_constant, std430) uniform Params {
 	vec3 LIGHT_COLOR;
 	float time;
 
-	vec2 pad;
+	float pad2;
+	float density;
 	float cloud_coverage;
 	float time_offset;
 } params;
@@ -108,7 +111,7 @@ float density(vec3 pip, vec3 weather, float mip) {
 	float height_fraction = GetHeightFractionForPoint(length(p));
 
 	// Base wind.
-	p.xz += params.time * 20.0 * normalize(params.wind_direction) * params.wind_speed * 0.6;
+	p.xz += 20.0 * params.cloud_pos * 0.6;
 
 	// Define the base of the cloud. 
 	vec4 n = textureLod(large_scale_noise, p.xyz * 0.00008, mip - 2.0);
@@ -122,7 +125,7 @@ float density(vec3 pip, vec3 weather, float mip) {
 	base_cloud *= weather_coverage;
 
 	// Detailed wind. 
-	p.xz -= params.time * normalize(params.wind_direction) * 40.;
+	p.xz -= params.detailed_pos * 40.;
 	p.y -= params.time * 40.;
 
 	// Detailed texture.
@@ -164,9 +167,8 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 	atmosphere_ground = mix(atmosphere_ground, params.ground_color.rgb * vec3(length(atmosphere_ground)), 0.5); // interpolate towards ground color with this intensity.
 	
 	const float weather_scale = 0.00006;
-	float time = params.time * 0.001 + 0.005 * params.time_offset;
-	vec2 weather_pos = time * normalize(params.wind_direction) * params.wind_speed;
-	
+	vec2 weather_pos = params.weather_pos;
+
 	for (int i = 0; i < depth; i++) {
 		p += dir * ss;
 		vec3 weather_sample = texture(weather_noise, p.xz * weather_scale + 0.5 + weather_pos).xyz;
