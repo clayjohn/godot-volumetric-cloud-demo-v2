@@ -24,8 +24,10 @@ var sun_disk_scale : float = 1.0:
 var ground_color : Color = Color(1.0, 1.0, 1.0, 1.0)
 
 @export_group("Performance Settings")
+@export_enum("Very Fast(4):4", "Fast(16):16", "Default(64):64", "Performance(256):256")
+var frames_to_update : int = 64
 @export
-var texture_size : int = 768 # Needs to be divisble by sqrt(frames_to_update)
+var texture_size : int = 768 # Needs to be divisible by sqrt(frames_to_update)
 
 var sun : DirectionalLight3D
 
@@ -39,6 +41,7 @@ class FrameData:
 	var cloud_coverage : float = 0.25
 	var time_offset : float = 0.0
 	var ground_color : Color = Color(1.0, 1.0, 1.0, 1.0)
+	var time = 0.0
 
 	# Properties updated by the light
 	var LIGHT_DIRECTION : Vector3 = Vector3(0.0, -1.0, 0.0)
@@ -52,7 +55,6 @@ class FrameData:
 
 var frame_data : FrameData = FrameData.new()
 var update_position : Vector2i = Vector2i(0, 0)
-var frames_to_update : int = 64 # needs to always be a power of two value
 var update_region_size : int = 96 # texture_size / sqrt(frames_to_update)
 var num_workgroups : int = 12 # update_region_size / 8
 
@@ -70,9 +72,16 @@ var can_run = false
 var needs_full_sky_init = true
 
 func _init():
+	call_deferred("delayed_init")
+	
+# Workaround due to the fact that exports are set after _init() is called
+func delayed_init():
 	var frames_sqrt : int = int(sqrt(frames_to_update))
 	update_region_size = texture_size / frames_sqrt
-	num_workgroups = update_region_size / 8
+	if texture_size % frames_sqrt !=0:
+		texture_size = update_region_size * frames_sqrt
+		print("texture_size is not a multiple of sqrt(frames_to_update), changing to: ", texture_size)
+	num_workgroups = (update_region_size + 7) / 8
 
 	sky_material.set_shader_parameter("sun_disk_scale", sun_disk_scale)
 	RenderingServer.call_on_render_thread.call_deferred(_initialize_compute_code.bind(texture_size))
@@ -134,6 +143,7 @@ func _update_per_frame_data():
 	frame_data.cloud_coverage = cloud_coverage
 	frame_data.time_offset = time_offset
 	frame_data.ground_color = ground_color
+	frame_data.time = Time.get_ticks_msec()/1000.0
 	sky_lut.update_lut(frame_data.LIGHT_DIRECTION)
 
 func _validate_property(property):
@@ -215,7 +225,7 @@ func _fill_push_constant():
 	push_constant.push_back(frame_data.LIGHT_COLOR.r)
 	push_constant.push_back(frame_data.LIGHT_COLOR.g)
 	push_constant.push_back(frame_data.LIGHT_COLOR.b)
-	push_constant.push_back(Time.get_ticks_msec()/1000.0)
+	push_constant.push_back(frame_data.time)
 	
 	push_constant.push_back(0.0)
 	push_constant.push_back(0.0)
