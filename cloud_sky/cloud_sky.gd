@@ -149,6 +149,19 @@ func _update_per_frame_data():
 	frame_data.cloud_coverage = cloud_coverage
 	frame_data.time_offset = time_offset
 	frame_data.ground_color = ground_color
+
+	# Before we can push those constants, there's a bit of math we need to do
+	var time = Time.get_ticks_msec() / 1000.0
+	var delta = time - frame_data._time
+	var delta2 = delta * 0.001 + 0.005 * frame_data.time_offset;
+	var wind_direction_normalized = frame_data.wind_direction.normalized()
+
+	# Which involves keeping some state and integrating positions over the latest time step
+	frame_data._time = time
+	frame_data._detailed_pos += delta * wind_direction_normalized
+	frame_data._cloud_pos += delta * wind_direction_normalized * frame_data.wind_speed
+	frame_data._weather_pos += delta2 * wind_direction_normalized * frame_data.wind_speed
+
 	sky_lut.update_lut(frame_data.LIGHT_DIRECTION)
 
 func _validate_property(property):
@@ -205,18 +218,6 @@ func _render_process(p_texture_to_update):
 
 	
 func _fill_push_constant():
-	# Before we can push those constants, there's a bit of math we need to do
-	var time = Time.get_ticks_msec() / 1000.0
-	var delta = time - frame_data._time
-	var delta2 = delta * 0.001 + 0.005 * frame_data.time_offset;
-	var wind_direction_normalized = frame_data.wind_direction.normalized()
-
-	# Which involves keeping some state and integrating positions over the latest time step
-	frame_data._time = time
-	frame_data._detailed_pos += delta * wind_direction_normalized
-	frame_data._cloud_pos += delta * wind_direction_normalized * frame_data.wind_speed
-	frame_data._weather_pos += delta2 * wind_direction_normalized * frame_data.wind_speed;
-
 	var push_constant : PackedFloat32Array = PackedFloat32Array()
 	# The order of properties here must match those in clouds.glsl, including padding
 	push_constant.push_back(texture_size)
@@ -247,7 +248,7 @@ func _fill_push_constant():
 	push_constant.push_back(frame_data.LIGHT_COLOR.r)
 	push_constant.push_back(frame_data.LIGHT_COLOR.g)
 	push_constant.push_back(frame_data.LIGHT_COLOR.b)
-	push_constant.push_back(time)
+	push_constant.push_back(frame_data._time)
 	
 	push_constant.push_back(0.0) # float pad2
 	push_constant.push_back(frame_data.density)
