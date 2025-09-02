@@ -4,12 +4,12 @@ extends Sky
 # User configurable properties
 @export_group("Cloud Settings")
 
-# Sets the wind direction in degrees, where 0 degrees is a wind coming from the north (+X axis),
-# 90 degrees is east, 180 is south and 270 (or rather -90) is west.
+## Sets the wind direction in degrees, where 0 degrees is a wind coming from the north (+X axis),
+## 90 degrees is east, 180 is south and 270 (or rather -90) is west.
 @export_custom(PROPERTY_HINT_RANGE, "-180,180,0.1,radians_as_degrees")
 var wind_direction: float = 0.0
 
-# Sets the wind speed in m/s.
+## Sets the wind speed in m/s.
 @export_custom(PROPERTY_HINT_RANGE, "0,120,0.1,or_greater,or_less,suffix:m/s")
 var wind_speed: float = 1.0
 # TODO This needs calibration if we want the m/s to make some sense. We can't really specify the
@@ -50,6 +50,8 @@ var texture_size : int = 768: # Needs to be divisible by sqrt(frames_to_update)
 		request_full_sky_init()
 
 var sun : DirectionalLight3D
+
+var date_time_location : Node3D
 
 # Everything in the compute shader must be cached here so that it only updates
 # after swapping to a new texture.
