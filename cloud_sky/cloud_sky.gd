@@ -34,9 +34,18 @@ var ground_color : Color = Color(1.0, 1.0, 1.0, 1.0)
 
 @export_group("Performance Settings")
 @export_enum("Very Fast(4):4", "Fast(16):16", "Default(64):64", "Performance(256):256")
-var frames_to_update : int = 64
-@export
-var texture_size : int = 768 # Needs to be divisible by sqrt(frames_to_update)
+var frames_to_update : int = 64:
+	set(value):
+		frames_to_update = value
+		request_full_sky_init()
+		update_performance()
+
+@export_range(32.0, 8192.0, 32.0)
+var texture_size : int = 768: # Needs to be divisible by sqrt(frames_to_update)
+	set(value):
+		texture_size = value
+		request_full_sky_init()
+		update_performance()
 
 var sun : DirectionalLight3D
 
@@ -90,6 +99,12 @@ func _init():
 	
 # Workaround due to the fact that exports are set after _init() is called
 func delayed_init():
+	update_performance()
+
+	# This calls "update_sky" at the beginning of the render loop automatically.
+	RenderingServer.connect("frame_pre_draw", update_sky)
+
+func update_performance():
 	var frames_sqrt : int = int(sqrt(frames_to_update))
 	update_region_size = texture_size / frames_sqrt
 	if texture_size % frames_sqrt !=0:
@@ -99,9 +114,6 @@ func delayed_init():
 
 	sky_material.set_shader_parameter("sun_disk_scale", sun_disk_scale)
 	RenderingServer.call_on_render_thread.call_deferred(_initialize_compute_code.bind(texture_size))
-
-	# This calls "update_sky" at the beginning of the render loop automatically.
-	RenderingServer.connect("frame_pre_draw", update_sky)
 
 func request_full_sky_init():
 	needs_full_sky_init = true
