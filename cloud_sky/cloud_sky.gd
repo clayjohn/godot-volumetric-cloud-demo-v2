@@ -37,15 +37,17 @@ var ground_color : Color = Color(1.0, 1.0, 1.0, 1.0)
 var frames_to_update : int = 64:
 	set(value):
 		frames_to_update = value
-		request_full_sky_init()
+		cleanup()
 		update_performance()
+		request_full_sky_init()
 
 @export_range(32.0, 8192.0, 32.0)
 var texture_size : int = 768: # Needs to be divisible by sqrt(frames_to_update)
 	set(value):
 		texture_size = value
-		request_full_sky_init()
+		cleanup()
 		update_performance()
+		request_full_sky_init()
 
 var sun : DirectionalLight3D
 
@@ -190,15 +192,20 @@ func _validate_property(property):
 
 func _notification(what):
 	if what == NOTIFICATION_PREDELETE:
-		for i in range(3):
-			if texture_rd[i]:
-				rd.free_rid(texture_rd[i])
-		if shader_rd:
-			rd.free_rid(shader_rd)
-		if noise_sampler:
-			rd.free_rid(noise_sampler)
-		if sky_sampler:
-			rd.free_rid(sky_sampler)
+		cleanup()
+		
+func cleanup():
+	can_run = false
+	frame = 0
+	for i in range(3):
+		if texture_rd[i]:
+			rd.free_rid(texture_rd[i])
+	if shader_rd:
+		rd.free_rid(shader_rd)
+	if noise_sampler:
+		rd.free_rid(noise_sampler)
+	if sky_sampler:
+		rd.free_rid(sky_sampler)
 
 
 ###############################################################################
@@ -381,6 +388,7 @@ func _initialize_compute_code(p_texture_size):
 	sky_uniform_set[0] = _create_sky_uniform_set(0)
 	sky_uniform_set[1] = _create_sky_uniform_set(1)
 	sky_uniform_set[2] = _create_sky_uniform_set(2)
+	textures.clear()
 
 	for i in range(3):
 		# Create our texture
