@@ -197,6 +197,10 @@ func _notification(what):
 func cleanup():
 	can_run = false
 	frame = 0
+	texture_to_update = 0
+	texture_to_blend_from = 1
+	texture_to_blend_to = 2
+	update_position = Vector2i(0, 0)
 	for i in range(3):
 		if texture_rd[i]:
 			rd.free_rid(texture_rd[i])
