@@ -11,6 +11,8 @@ uniform sampler2D source_transmittance : filter_linear, hint_default_black, repe
 
 uniform float blend_amount : hint_range(0.0, 1.0, 0.01);
 uniform float sun_disk_scale = 1.0;
+uniform float sun_disk_hdr_brightness : hint_range(0.0, 100.0, 0.01) = 5.0;
+uniform float sun_disk_hdr_attenuation : hint_range(1.0, 10.0, 0.01) = 1.0;
 
 vec2 oct_wrap(vec2 v) {
 	vec2 signVal;
@@ -50,7 +52,7 @@ vec3 sunWithBloom(vec3 rayDir, vec3 sunDir) {
     float minSunCosTheta = cos(sunSolidAngle);
 
     float cosTheta = dot(rayDir, sunDir);
-    if (cosTheta >= minSunCosTheta) return vec3(1.0);
+    if (cosTheta >= minSunCosTheta) return vec3(1.0 + pow(smoothstep(minSunCosTheta, 1.0, cosTheta), sun_disk_hdr_attenuation) * sun_disk_hdr_brightness);
     
     float offset = minSunCosTheta - cosTheta;
     float gaussianBloom = exp(-offset*50000.0)*0.5;
@@ -87,8 +89,6 @@ vec3 getValFromTLUT(sampler2D tex, vec2 bufferRes, vec3 pos, vec3 sunDir) {
 vec3 get_atmo(vec3 dir) {
 	vec3 col = getValFromSkyLUT(dir);
 	vec3 sunLum = sunWithBloom(dir, LIGHT0_DIRECTION);
-    // Use smoothstep to limit the effect, so it drops off to actual zero.
-    sunLum = smoothstep(0.002, 1.0, sunLum);
     if (length(sunLum) > 0.0) {
         if (rayIntersectSphere(viewPos, dir, groundRadiusMM) >= 0.0) {
             sunLum *= 0.0;
