@@ -68,6 +68,7 @@ class FrameData:
 	var _time : float = 0.0
 	var _cloud_pos : Vector2 = Vector2(0.0, 0.0)
 	var _detailed_pos : Vector2 = Vector2(0.0, 0.0)
+	var _weather_offset : Vector2 = Vector2(0.0, 0.0)
 	var _weather_pos : Vector2 = Vector2(0.0, 0.0)
 
 	# Properties updated by the light
@@ -177,14 +178,14 @@ func _update_per_frame_data():
 	# Before we can push those constants, there's a bit of math we need to do
 	var time = Time.get_ticks_msec() / 1000.0
 	var delta = time - frame_data._time
-	var delta2 = delta * 0.001 + 0.005 * frame_data.time_offset;
 	var wind_direction_normalized = frame_data.wind_direction.normalized()
 
 	# Which involves keeping some state and integrating positions over the latest time step
 	frame_data._time = time
 	frame_data._detailed_pos += delta * wind_direction_normalized
 	frame_data._cloud_pos += delta * wind_direction_normalized * frame_data.wind_speed
-	frame_data._weather_pos += delta2 * wind_direction_normalized * frame_data.wind_speed
+	frame_data._weather_offset += delta * 0.001 * wind_direction_normalized * frame_data.wind_speed
+	frame_data._weather_pos = frame_data._weather_offset + frame_data.wind_direction.normalized() * (0.005 * frame_data.time_offset * frame_data.wind_speed)
 
 	sky_lut.update_lut(frame_data.LIGHT_DIRECTION)
 

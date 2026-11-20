@@ -142,7 +142,8 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 	// Initialize ray length, direction, and position.
 	float ss = length(dir);
 	dir = normalize(dir);
-	vec3 p = pos + dir * hash(pos * 10.0) * ss;
+	float jitter = hash(pos * 10.0);
+	vec3 p;
 
 	// Initialize light ray.
 	const float t_dist = sky_t_radius - sky_b_radius;
@@ -151,6 +152,7 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 
 	float t = 1.0;
 	float T = 1.0;
+	const float MIN_TRANSMITTANCE = 0.001;
 	float alpha = 0.0;
 	vec3 L = vec3(0.0);
 	
@@ -170,7 +172,7 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 	vec2 weather_pos = params.weather_pos;
 
 	for (int i = 0; i < depth; i++) {
-		p += dir * ss;
+		p = pos + dir * ((float(i) + 1.0 + jitter) * ss);
 		vec3 weather_sample = texture(weather_noise, p.xz * weather_scale + 0.5 + weather_pos).xyz;
 		float height_fraction = GetHeightFractionForPoint(length(p));
 
@@ -182,10 +184,8 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 		float cd = 0.0;
 
 		if (t > 0.0) { //calculate lighting, but only when we are in the cloud
-			float lheight_fraction = 0.0;
 			for (int j = 0; j < 6; j++) {
 				lp +=  (ldir + RANDOM_VECTORS[j] * float(j)) * lss;
-				lheight_fraction = GetHeightFractionForPoint(length(lp));
 				vec3 lweather = texture(weather_noise, lp.xz * weather_scale + 0.5 + weather_pos).xyz;
 				lt = density(lp, lweather, float(j));
 				cd += lt;
@@ -193,9 +193,8 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 			
 			// Take a single distant sample
 			lp = p + ldir * 18.0 * lss;
-			lheight_fraction = GetHeightFractionForPoint(length(lp));
-			vec3 lweather = texture(weather_noise, lp.xz * weather_scale + 0.5).xyz;
-			lt = pow(density(lp, lweather, 5.0), (1.0 - lheight_fraction) * 0.8 + 0.5);
+			vec3 lweather = texture(weather_noise, lp.xz * weather_scale + 0.5 + weather_pos).xyz;
+			lt = density(lp, lweather, 5.0);
 			cd += lt;
 			
 			// captures the direct lighting from the sun
@@ -208,6 +207,10 @@ vec4 march(vec3 pos,  vec3 end, vec3 dir, int depth) {
 			vec3 radiance = (ambient + beers_total * atmosphere_sun * phase) * t;
 			L += T * (radiance - radiance * dt) / max(0.0000001, t);
 			T *= dt;
+			// Further samples contribute negligibly once the view ray is opaque.
+			if (T < MIN_TRANSMITTANCE) {
+				break;
+			}
 		}
 	}
 	alpha = clamp(alpha, 0.0, 1.0);
@@ -225,10 +228,10 @@ vec4 sky(vec3 dir) {
 		vec3 end = camPos + dir * intersectSphere(camPos, dir, sky_t_radius);
 		float shelldist = (length(end - start));
 		// Take fewer steps towards horizon
-		float steps = 128.0;
+		float steps = mix(128.0, 96.0, smoothstep(0.5, 1.0, dir.y));
 
 		vec3 raystep = dir * shelldist / steps;
-		col = march(start, end, raystep, int(steps));
+		col = march(start, end, raystep, int(ceil(steps)));
 	} else {
 		col = vec4(0.0);
 	}
@@ -258,11 +261,9 @@ vec3 oct_to_vec3(vec2 e) {
 void main() {
 	// Calculate direction from pixel position.
 	ivec2 pos = ivec2(gl_GlobalInvocationID.xy) + ivec2(params.update_position);
-	vec2 uv = vec2(pos) / params.texture_size;
+	vec2 uv = (vec2(pos) + 0.5) / params.texture_size;
 	vec3 dir = oct_to_vec3(uv).xzy;
 	
 	imageStore(current_image, pos, sky(dir));
 
 }
-
-
