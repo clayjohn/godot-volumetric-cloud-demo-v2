@@ -1,8 +1,8 @@
-[gd_scene load_steps=5 format=3 uid="uid://cj5hq40giurw8"]
+[gd_scene format=3 uid="uid://cj5hq40giurw8"]
 
 [ext_resource type="Sky" uid="uid://b6ffjku47471j" path="res://cloud_sky/clouds_sky.tres" id="1_jderp"]
 [ext_resource type="Script" uid="uid://b55g08181nufj" path="res://cloud_sky/sun.gd" id="2_xh5fm"]
-[ext_resource type="Script" path="res://cloud_sky/date_time_location.gd" id="4_pxycy"]
+[ext_resource type="Script" uid="uid://cfd7draxdl1cf" path="res://cloud_sky/date_time_location.gd" id="4_pxycy"]
 
 [sub_resource type="Environment" id="Environment_hxkob"]
 background_mode = 2
@@ -10,19 +10,19 @@ sky = ExtResource("1_jderp")
 tonemap_mode = 3
 tonemap_white = 3.53
 
-[node name="CloudMaterialTest" type="Node3D"]
+[node name="CloudMaterialTest" type="Node3D" unique_id=962388019]
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1692108873]
 environment = SubResource("Environment_hxkob")
 
-[node name="Camera3D" type="Camera3D" parent="."]
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1030895429]
 transform = Transform3D(0.105461, -0.534173, -0.838771, -0.00147199, 0.84339, -0.5373, 0.994422, 0.0578988, 0.0881584, 0, 0, 0)
 
-[node name="Sun" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.109518, -0.99378, 0.0202046, -0.981378, -0.104879, 0.160932, -0.157812, -0.0374532, -0.986759, 0.00832629, 2.33525, 0)
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=22277399]
+transform = Transform3D(0.42133716, 0.9066788, 0.02020459, 0.893668, -0.41887724, 0.16093194, 0.1543768, -0.04975041, -0.9867588, 0.00832629, 2.33525, 0)
 script = ExtResource("2_xh5fm")
 
-[node name="DateTimeLocation" type="Node3D" parent="."]
+[node name="DateTimeLocation" type="Node3D" parent="." unique_id=1413558181]
 script = ExtResource("4_pxycy")
 day_of_the_year = 244
 time_in_seconds = 69407.0
